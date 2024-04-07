@@ -21,8 +21,14 @@ parser = argparse.ArgumentParser()
 parser.add_argument(
     "--robot",
     type=str,
-    default="franka.yml",
+    default="",
     help="Robot configuration to download",
+)
+parser.add_argument(
+    "--object",
+    type=str,
+    default="",
+    help="Object configuration to download",
 )
 parser.add_argument("--save_usd", default=False, action="store_true")
 args = parser.parse_args()
@@ -51,6 +57,7 @@ from curobo.util_file import (
     get_filename,
     get_path_of_dir,
     get_robot_configs_path,
+    get_world_configs_path,
     join_path,
     load_yaml,
 )
@@ -74,31 +81,41 @@ def save_usd():
     import_config.distance_scale = 1
     import_config.density = 0.0
     # Get the urdf file path
-    robot_config = load_yaml(join_path(get_robot_configs_path(), args.robot))
-    urdf_path = join_path(get_assets_path(), robot_config["robot_cfg"]["kinematics"]["urdf_path"])
+    if args.robot:
+        entity_config = load_yaml(join_path(get_robot_configs_path(), args.robot))
+    else:
+        entity_config = load_yaml(join_path(get_world_configs_path(), args.world))
+    urdf_path = join_path(get_assets_path(),
+                          entity_config["robot_cfg"]["kinematics"]["urdf_path"] if args.robot else
+                          entity_config["object_cfg"]["urdf_path"])
     asset_path = join_path(
-        get_assets_path(), robot_config["robot_cfg"]["kinematics"]["asset_root_path"]
+        get_assets_path(),
+        entity_config["robot_cfg"]["kinematics"]["asset_root_path"] if args.robot else
+        entity_config["object_cfg"]["asset_root_path"]
     )
     urdf_interface = _urdf.acquire_urdf_interface()
-    full_path = join_path(get_assets_path(), robot_config["robot_cfg"]["kinematics"]["urdf_path"])
-    default_config = robot_config["robot_cfg"]["kinematics"]["cspace"]["retract_config"]
-    j_names = robot_config["robot_cfg"]["kinematics"]["cspace"]["joint_names"]
+    if args.robot:
+        default_config = entity_config["robot_cfg"]["kinematics"]["cspace"]["retract_config"]
+        j_names = entity_config["robot_cfg"]["kinematics"]["cspace"]["joint_names"]
 
-    robot_path = get_path_of_dir(full_path)
-    filename = get_filename(full_path)
-    imported_robot = urdf_interface.parse_urdf(robot_path, filename, import_config)
-    robot_path = urdf_interface.import_robot(
-        robot_path, filename, imported_robot, import_config, ""
+    entity_path = get_path_of_dir(urdf_path)
+    filename = get_filename(urdf_path)
+    imported_entity = urdf_interface.parse_urdf(entity_path, filename, import_config)
+    entity_path = urdf_interface.import_robot(
+        entity_path, filename, imported_entity, import_config, ""
     )
-    robot = my_world.scene.add(Robot(prim_path=robot_path, name="robot"))
+    robot = my_world.scene.add(Robot(prim_path=entity_path, name="robot"))
+    #robot.set_enabled_self_collisions(False)
     # robot.disable_gravity()
     i = 0
 
-    my_world.reset()
+    #my_world.reset()
 
     usd_help = UsdHelper()
     usd_help.load_stage(my_world.stage)
-    save_path = join_path(get_assets_path(), robot_config["robot_cfg"]["kinematics"]["usd_path"])
+    save_path = join_path(get_assets_path(),
+                          entity_config["robot_cfg"]["kinematics"]["usd_path"] if args.robot else
+                          entity_config["object_cfg"]["usd_path"])
     usd_help.write_stage_to_file(save_path, True)
     print("Wrote usd file to " + save_path)
     simulation_app.close()

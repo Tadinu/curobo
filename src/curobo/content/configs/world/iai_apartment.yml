@@ -1,0 +1,7 @@
+world_cfg:
+  isaac_usd_path: "/Isaac/Robots/IAI_Apartment/iai_apartment.usd"
+  usd_path: "world/iai_apartment/iai_apartment_meters.usda"
+  usd_robot_root: "/iai_apartment"
+  urdf_path: "robot/iai_apartment/urdf/apartment.urdf"
+  asset_root_path: "robot/iai_apartment"
+  base_link: "apartment_root"

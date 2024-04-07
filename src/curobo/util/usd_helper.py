@@ -10,6 +10,8 @@
 #
 
 # Standard Library
+import os
+from pathlib import Path
 import math
 from typing import Dict, List, Optional, Union
 
@@ -653,6 +655,9 @@ class UsdHelper:
             usd_str = self.stage.Flatten().ExportToString()
         else:
             usd_str = self.stage.GetRootLayer().ExportToString()
+        parent_dir = os.path.dirname(file_path)
+        if not Path(parent_dir).exists():
+            Path(parent_dir).mkdir(parents=True, exist_ok=True)
         with open(file_path, "w") as f:
             f.write(usd_str)
 

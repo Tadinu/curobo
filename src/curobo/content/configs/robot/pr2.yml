@@ -1,0 +1,52 @@
+##
+## Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+##
+## NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+## property and proprietary rights in and to this material, related
+## documentation and any modifications thereto. Any use, reproduction,
+## disclosure or distribution of this material and related documentation
+## without an express license agreement from NVIDIA CORPORATION or
+## its affiliates is strictly prohibited.
+##
+
+robot_cfg:
+  kinematics:
+    use_usd_kinematics: False
+    isaac_usd_path: "/Isaac/Robots/PR2/pr2.usd"
+    usd_path: "robot/non_shipping/pr2/pr2.usda"
+    usd_robot_root: "/pr2"
+    usd_flip_joints: []
+    usd_flip_joints: {}
+    
+    usd_flip_joint_limits: []
+    urdf_path: "robot/pr2_description/pr2.urdf"
+    asset_root_path: "robot/pr2_description"
+    base_link: "base_link"
+    ee_link: "l_gripper_palm_link"
+    collision_link_names:
+      [
+      ]
+    collision_spheres: "spheres/pr2.yml"
+    collision_sphere_buffer: 0.004 # 0.0025
+    extra_collision_spheres: {"attached_object": 4}
+    use_global_cumul: True
+    self_collision_ignore:
+      {
+      }
+    
+    self_collision_buffer:
+      {
+      }
+    #link_names: ["panda_link4"]
+    mesh_link_names:
+      [
+      ]
+    lock_joints: {}
+    extra_links: {}
+    cspace:
+      joint_names: []
+      retract_config: []
+      null_space_weight: []
+      cspace_distance_weight: []
+      max_acceleration: 15.0
+      max_jerk: 500.0

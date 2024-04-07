@@ -37,6 +37,10 @@ cuRobo performs trajectory optimization across many seeds in parallel to find a 
 <img width="500" src="images/rrt_compare.gif">
 </p>
 
+## Configure PyCharm
+Open Python Interpreter Settings window
+Click on the interpreter drop-down list and select "Show All", which opens up another window
+Click on `+` to add a new interpreter at path "/home/ducthan/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh"
 
 ## Citation
 
