@@ -88,7 +88,7 @@ args = parser.parse_args()
 ############################################################
 
 # Third Party
-from omni.isaac.kit import SimulationApp
+from isaacsim import SimulationApp
 
 simulation_app = SimulationApp(
     {
@@ -104,11 +104,11 @@ from typing import Dict
 import carb
 import numpy as np
 from helper import add_extensions, add_robot_to_scene
-from omni.isaac.core import World
-from omni.isaac.core.objects import cuboid, sphere
+from isaacsim.core.api.world import World
+from isaacsim.core.api.objects import VisualCuboid, VisualSphere
 
 ########### OV #################
-from omni.isaac.core.utils.types import ArticulationAction
+from isaacsim.core.utils.types import ArticulationAction
 
 # CuRobo
 # from curobo.wrap.reacher.ik_solver import IKSolver, IKSolverConfig
@@ -157,7 +157,7 @@ def main():
     # stage.SetDefaultPrim(stage.GetPrimAtPath("/World"))
 
     # Make a target to follow
-    target = cuboid.VisualCuboid(
+    target = VisualCuboid(
         "/World/target",
         position=np.array([0.5, 0, 0.5]),
         orientation=np.array([0, 1, 0, 0]),
@@ -235,7 +235,8 @@ def main():
     motion_gen = MotionGen(motion_gen_config)
     if not args.reactive:
         print("warming up...")
-        motion_gen.warmup(enable_graph=True, warmup_js_trajopt=False)
+    ee = motion_gen_config.robot_cfg.kinematics.kinematics_config.ee_links[0]
+    motion_gen.warmup(ee, enable_graph=True, warmup_js_trajopt=False)
 
     print("Curobo is Ready")
 
@@ -341,14 +342,14 @@ def main():
         cu_js = cu_js.get_ordered_joint_state(motion_gen.kinematics.joint_names)
 
         if args.visualize_spheres and step_index % 2 == 0:
-            sph_list = motion_gen.kinematics.get_robot_as_spheres(cu_js.position)
+            sph_list = motion_gen.kinematics.get_robot_as_spheres(cu_js.position, ee)
 
             if spheres is None:
                 spheres = []
                 # create spheres:
 
                 for si, s in enumerate(sph_list[0]):
-                    sp = sphere.VisualSphere(
+                    sp = VisualSphere(
                         prim_path="/curobo/robot_sphere_" + str(si),
                         position=np.ravel(s.position),
                         radius=float(s.radius),
@@ -383,8 +384,8 @@ def main():
                 quaternion=tensor_args.to_device(ee_orientation_teleop_goal),
             )
             plan_config.pose_cost_metric = pose_metric
-            result = motion_gen.plan_single(cu_js.unsqueeze(0), ik_goal, plan_config)
-            # ik_result = ik_solver.solve_single(ik_goal, cu_js.position.view(1,-1), cu_js.position.view(1,1,-1))
+            result = motion_gen.plan_single(ee, cu_js.unsqueeze(0), ik_goal, plan_config)
+            # ik_result = ik_solver.solve_single(ee, ik_goal, cu_js.position.view(1,-1), cu_js.position.view(1,1,-1))
 
             succ = result.success.item()  # ik_result.success.item()
             if num_targets == 1:

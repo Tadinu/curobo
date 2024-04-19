@@ -80,8 +80,9 @@ def ik_solver_batch_env():
 
 
 def test_ik_single(ik_solver):
+    ee = ik_solver.robot_config.kinematics.kinematics_config.ee_links[0]
     q_sample = ik_solver.sample_configs(1)
-    kin_state = ik_solver.fk(q_sample)
+    kin_state = ik_solver.fk(q_sample, ee)
     goal = Pose(kin_state.ee_position, kin_state.ee_quaternion)
     result = ik_solver.solve_single(goal)
 
@@ -90,19 +91,23 @@ def test_ik_single(ik_solver):
 
 
 def test_ik_goalset(ik_solver):
+    ee = ik_solver.robot_config.kinematics.kinematics_config.ee_links[0]
     q_sample = ik_solver.sample_configs(10)
-    kin_state = ik_solver.fk(q_sample)
+    kin_state = ik_solver.fk(q_sample, ee)
     goal = Pose(kin_state.ee_position.unsqueeze(0), kin_state.ee_quaternion.unsqueeze(0))
-    result = ik_solver.solve_goalset(goal)
+    ee = ik_solver.robot_config.kinematics.ee_links[0]
+    result = ik_solver.solve_goalset(ee, goal)
 
     assert result.success.item()
 
 
 def test_ik_batch(ik_solver):
+    ee = ik_solver.robot_config.kinematics.kinematics_config.ee_links[0]
     q_sample = ik_solver.sample_configs(10)
-    kin_state = ik_solver.fk(q_sample)
+    kin_state = ik_solver.fk(q_sample, ee)
     goal = Pose(kin_state.ee_position, kin_state.ee_quaternion)
-    result = ik_solver.solve_batch(goal)
+    ee = ik_solver.robot_config.kinematics.kinematics_config.ee_links[0]
+    result = ik_solver.solve_batch(ee, goal)
     assert torch.count_nonzero(result.success) > 5
 
 
@@ -110,13 +115,15 @@ def test_ik_batch_goalset(ik_solver):
     q_sample = ik_solver.sample_configs(100)
     kin_state = ik_solver.fk(q_sample)
     goal = Pose(kin_state.ee_position.view(10, 10, 3), kin_state.ee_quaternion.view(10, 10, 4))
-    result = ik_solver.solve_batch_goalset(goal)
+    ee = ik_solver.robot_config.kinematics.kinematics_config.ee_links[0]
+    result = ik_solver.solve_batch_goalset(ee, goal)
     assert torch.count_nonzero(result.success) > 5
 
 
 def test_ik_batch_env(ik_solver_batch_env):
+    ee = ik_solver_batch_env.robot_config.kinematics.kinematics_config.ee_links[0]
     q_sample = ik_solver_batch_env.sample_configs(3)
-    kin_state = ik_solver_batch_env.fk(q_sample)
+    kin_state = ik_solver_batch_env.fk(q_sample, ee)
     goal = Pose(kin_state.ee_position, kin_state.ee_quaternion)
     result = ik_solver_batch_env.solve_batch_env(goal)
 
@@ -124,8 +131,9 @@ def test_ik_batch_env(ik_solver_batch_env):
 
 
 def test_ik_batch_env_goalset(ik_solver_batch_env):
+    ee = ik_solver_batch_env.robot_config.kinematics.kinematics_config.ee_links[0]
     q_sample = ik_solver_batch_env.sample_configs(3 * 3)
-    kin_state = ik_solver_batch_env.fk(q_sample)
+    kin_state = ik_solver_batch_env.fk(q_sample, ee)
     goal = Pose(kin_state.ee_position.view(3, 3, 3), kin_state.ee_quaternion.view(3, 3, 4))
     result = ik_solver_batch_env.solve_batch_env_goalset(goal)
     assert torch.count_nonzero(result.success) >= 2

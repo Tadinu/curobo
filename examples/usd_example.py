@@ -60,11 +60,12 @@ def get_trajectory(robot_file="franka.yml", dt=1.0 / 60.0, plan_grasp: bool = Fa
         interpolation_dt=dt,
     )
     motion_gen = MotionGen(motion_gen_config)
-    motion_gen.warmup(n_goalset=2)
+    ee = motion_gen_config.robot_cfg.kinematics.kinematics_config.ee_links[0]
+    motion_gen.warmup(ee, n_goalset=2)
     robot_cfg = load_yaml(join_path(get_robot_configs_path(), robot_file))["robot_cfg"]
     robot_cfg = RobotConfig.from_dict(robot_cfg, tensor_args)
     retract_cfg = motion_gen.get_retract_config()
-    state = motion_gen.rollout_fn.compute_kinematics(
+    state = motion_gen.rollout_fn.compute_kinematics(ee,
         JointState.from_position(retract_cfg.view(1, -1))
     )
     if plan_grasp:
@@ -213,7 +214,9 @@ def save_log_motion_gen(robot_file: str = "franka.yml"):
     motion_gen = mg
     # generate a plan:
     retract_cfg = motion_gen.get_retract_config()
-    state = motion_gen.rollout_fn.compute_kinematics(
+    ee_links = robot_cfg["kinematics"]["ee_links"]
+    ee = ee_links[0]
+    state = motion_gen.rollout_fn.compute_kinematics(ee,
         JointState.from_position(retract_cfg.view(1, -1))
     )
     link_chain = motion_gen.kinematics.kinematics_config.link_chain_map[

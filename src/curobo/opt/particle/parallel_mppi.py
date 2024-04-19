@@ -598,7 +598,7 @@ class ParallelMPPI(ParticleOptBase, ParallelMPPIConfig):
             self._sample_iter_n = 0
 
     @torch.no_grad()
-    def generate_rollouts(self, init_act=None):
+    def generate_rollouts(self, ee: str, init_act=None):
         """
         Samples a batch of actions, rolls out trajectories for each particle
         and returns the resulting observations, costs,
@@ -610,7 +610,7 @@ class ParallelMPPI(ParticleOptBase, ParallelMPPIConfig):
             Initial state to set the simulation problem to
         """
 
-        return super().generate_rollouts(init_act)
+        return super().generate_rollouts(ee, init_act)
 
 
 @get_torch_jit_decorator()

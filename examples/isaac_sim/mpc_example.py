@@ -43,7 +43,7 @@ parser.add_argument(
     default=False,
 )
 
-parser.add_argument("--robot", type=str, default="franka.yml", help="robot configuration to load")
+parser.add_argument("--robot", type=str, default="ur5e_robotiq_2f_140.yml", help="robot configuration to load")
 args = parser.parse_args()
 
 ###########################################################
@@ -75,6 +75,7 @@ from omni.isaac.core.utils.types import ArticulationAction
 # CuRobo
 from curobo.util.logger import setup_curobo_logger
 from curobo.util.usd_helper import UsdHelper
+from curobo.types.robot import RobotConfig
 
 ############################################################
 
@@ -172,11 +173,11 @@ def main():
 
     tensor_args = TensorDeviceType()
 
-    robot_cfg = load_yaml(join_path(get_robot_configs_path(), args.robot))["robot_cfg"]
+    robot_cfg = RobotConfig.from_dict(load_yaml(join_path(get_robot_configs_path(), args.robot))["robot_cfg"])
 
-    j_names = robot_cfg["kinematics"]["cspace"]["joint_names"]
-    default_config = robot_cfg["kinematics"]["cspace"]["retract_config"]
-    robot_cfg["kinematics"]["collision_sphere_buffer"] += 0.02
+    j_names = robot_cfg.kinematics.cspace.joint_names
+    default_config = robot_cfg.kinematics.cspace.retract_config
+    robot_cfg.kinematics.generator_config.collision_sphere_buffer += 0.02
 
     robot, robot_prim_path = add_robot_to_scene(robot_cfg, my_world)
 
@@ -192,13 +193,7 @@ def main():
     world_cfg1.mesh[0].name += "_mesh"
     world_cfg1.mesh[0].pose[2] = -10.5
 
-    world_cfg = WorldConfig(cuboid=world_cfg_table.cuboid, mesh=world_cfg1.mesh)
-
     init_curobo = False
-
-    tensor_args = TensorDeviceType()
-
-    robot_cfg = load_yaml(join_path(get_robot_configs_path(), args.robot))["robot_cfg"]
 
     world_cfg_table = WorldConfig.from_dict(
         load_yaml(join_path(get_world_configs_path(), "collision_table.yml"))
@@ -209,10 +204,6 @@ def main():
     world_cfg1.mesh[0].pose[2] = -10.0
 
     world_cfg = WorldConfig(cuboid=world_cfg_table.cuboid, mesh=world_cfg1.mesh)
-    j_names = robot_cfg["kinematics"]["cspace"]["joint_names"]
-
-    default_config = robot_cfg["kinematics"]["cspace"]["retract_config"]
-
     mpc_config = MpcSolverConfig.load_from_robot_config(
         robot_cfg,
         world_cfg,
@@ -234,7 +225,8 @@ def main():
     retract_cfg = mpc.rollout_fn.dynamics_model.retract_config.clone().unsqueeze(0)
     joint_names = mpc.rollout_fn.joint_names
 
-    state = mpc.rollout_fn.compute_kinematics(
+    ee = robot_cfg.kinematics.kinematics_config.ee_links[0]
+    state = mpc.rollout_fn.compute_kinematics(ee,
         JointState.from_position(retract_cfg, joint_names=joint_names)
     )
     current_state = JointState.from_position(retract_cfg, joint_names=joint_names)
@@ -247,7 +239,7 @@ def main():
 
     goal_buffer = mpc.setup_solve_single(goal, 1)
     mpc.update_goal(goal_buffer)
-    mpc_result = mpc.step(current_state, max_attempts=2)
+    mpc_result = mpc.step(ee, current_state, max_attempts=2)
 
     usd_help.load_stage(my_world.stage)
     init_world = False
@@ -345,8 +337,8 @@ def main():
         common_js_names = []
         current_state.copy_(cu_js)
 
-        mpc_result = mpc.step(current_state, max_attempts=2)
-        # ik_result = ik_solver.solve_single(ik_goal, cu_js.position.view(1,-1), cu_js.position.view(1,1,-1))
+        mpc_result = mpc.step(ee, current_state, max_attempts=2)
+        # ik_result = ik_solver.solve_single(ee, ik_goal, cu_js.position.view(1,-1), cu_js.position.view(1,1,-1))
 
         succ = True  # ik_result.success.item()
         cmd_state_full = mpc_result.js_action
@@ -361,10 +353,11 @@ def main():
         cmd_state_full = cmd_state
 
         art_action = ArticulationAction(
-            cmd_state.position.view(-1).cpu().numpy(),
-            # cmd_state.velocity.cpu().numpy(),
+            joint_positions=cmd_state.position.view(-1).cpu().numpy(),
+            #joint_velocities=cmd_state.velocity.cpu().numpy(),
             joint_indices=idx_list,
         )
+
         # positions_goal = articulation_action.joint_positions
         if step_index % 1000 == 0:
             print(mpc_result.metrics.feasible.item(), mpc_result.metrics.pose_error.item())

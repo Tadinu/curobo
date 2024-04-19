@@ -64,7 +64,8 @@ def demo_full_config_mpc():
     retract_cfg = mpc.rollout_fn.dynamics_model.retract_config.unsqueeze(0)
     joint_names = mpc.joint_names
 
-    state = mpc.rollout_fn.compute_kinematics(
+    ee = robot_cfg.kinematics.kinematics_config.ee_links[0]
+    state = mpc.rollout_fn.compute_kinematics(ee,
         JointState.from_position(retract_cfg + 0.5, joint_names=joint_names)
     )
     retract_pose = Pose(state.ee_pos_seq, quaternion=state.ee_quat_seq)

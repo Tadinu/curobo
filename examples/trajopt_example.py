@@ -71,6 +71,8 @@ def demo_trajopt_collision_free():
     )
     world_cfg = WorldConfig.from_dict(load_yaml(join_path(get_world_configs_path(), world_file)))
 
+    ee = robot_cfg.kinematics.kinematics_config.ee_links[0]
+
     trajopt_config = TrajOptSolverConfig.load_from_robot_config(
         robot_cfg,
         world_cfg,
@@ -82,7 +84,7 @@ def demo_trajopt_collision_free():
 
     q_goal = q_start.clone() + 0.1
     # q_goal[...,-1] -=0.2
-    kin_state = trajopt_solver.fk(q_goal)
+    kin_state = trajopt_solver.fk(q_goal, ee)
     goal_pose = Pose(kin_state.ee_position, kin_state.ee_quaternion)
     goal_state = JointState.from_position(q_goal)
     current_state = JointState.from_position(q_start)
@@ -103,7 +105,7 @@ def demo_trajopt_collision_free():
     # exit()
     print("Running Goal Pose trajopt")
     js_goal = Goal(goal_pose=goal_pose, current_state=current_state)
-    result = trajopt_solver.solve_single(js_goal)
+    result = trajopt_solver.solve_single(ee, js_goal)
     print(result.success)
     if PLOT:
         plot_js(result.solution)
@@ -112,7 +114,7 @@ def demo_trajopt_collision_free():
     print("Running Goal Pose Set trajopt")
     # g_set = Pose(kin_state.ee_position, kin_state.ee_quaternion.repeat(2,1).view())
     # js_goal = Goal(goal_pose=goal_pose, current_state=current_state)
-    # result = trajopt_solver.solve_single(js_goal)
+    # result = trajopt_solver.solve_single(ee, js_goal)
 
 
 if __name__ == "__main__":

@@ -205,7 +205,8 @@ def load_curobo(
         finetune_trajopt_iters=200,
     )
     mg = MotionGen(motion_gen_config)
-    mg.warmup(enable_graph=True, warmup_js_trajopt=False, parallel_finetune=True)
+    ee = motion_gen_config.robot_cfg.kinematics.kinematics_config.ee_links[0]
+    mg.warmup(ee, enable_graph=True, warmup_js_trajopt=False, parallel_finetune=True)
     # create a ground truth collision checker:
     config = RobotWorldConfig.load_from_config(
         robot_cfg_instance,

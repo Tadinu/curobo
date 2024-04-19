@@ -34,8 +34,8 @@ def test_basic_ik():
         "urdf_path"
     ]  # Send global path starting with "/"
     base_link = config_file["robot_cfg"]["kinematics"]["base_link"]
-    ee_link = config_file["robot_cfg"]["kinematics"]["ee_link"]
-    robot_cfg = RobotConfig.from_basic(urdf_file, base_link, ee_link, tensor_args)
+    ee_links = config_file["robot_cfg"]["kinematics"]["ee_links"]
+    robot_cfg = RobotConfig.from_basic(urdf_file, base_link, ee_links, tensor_args)
 
     ik_config = IKSolverConfig.load_from_robot_config(
         robot_cfg,
@@ -48,11 +48,13 @@ def test_basic_ik():
         tensor_args=tensor_args,
     )
     ik_solver = IKSolver(ik_config)
+    ee = ik_solver.robot_config.kinematics.kinematics_config.ee_links[0]
     b_size = 10
     q_sample = ik_solver.sample_configs(b_size)
-    kin_state = ik_solver.fk(q_sample)
+    kin_state = ik_solver.fk(q_sample, ee)
     goal = Pose(kin_state.ee_position, kin_state.ee_quaternion)
-    result = ik_solver.solve_batch(goal)
+    ee = robot_cfg.kinematics.kinematics_config.ee_links[0]
+    result = ik_solver.solve_batch(ee, goal)
     success = result.success
 
     assert torch.count_nonzero(success).item() >= 1.0  # we check if atleast 1 is successful
@@ -78,12 +80,13 @@ def test_full_config_collision_free_ik():
         tensor_args=tensor_args,
     )
     ik_solver = IKSolver(ik_config)
+    ee = ik_solver.robot_config.kinematics.kinematics_config.ee_links[0]
     b_size = 10
 
     q_sample = ik_solver.sample_configs(b_size)
-    kin_state = ik_solver.fk(q_sample)
+    kin_state = ik_solver.fk(q_sample, ee)
     goal = Pose(kin_state.ee_position, kin_state.ee_quaternion)
-    result = ik_solver.solve(goal)
+    result = ik_solver.solve(ee, goal)
 
     success = result.success
     assert torch.count_nonzero(success).item() >= 9.0  # we check if atleast 90% are successful
@@ -109,23 +112,24 @@ def test_attach_object_full_config_collision_free_ik():
         tensor_args=tensor_args,
     )
     ik_solver = IKSolver(ik_config)
+    ee = ik_solver.robot_config.kinematics.kinematics_config.ee_links[0]
     b_size = 10
 
     q_sample = ik_solver.sample_configs(b_size)
-    kin_state = ik_solver.fk(q_sample)
+    kin_state = ik_solver.fk(q_sample, ee)
     goal = Pose(kin_state.ee_position, kin_state.ee_quaternion)
-    result = ik_solver.solve(goal)
+    result = ik_solver.solve(ee, goal)
 
     success = result.success
     assert torch.count_nonzero(success).item() >= 9.0  # we check if atleast 90% are successful
 
     q_sample = ik_solver.sample_configs(b_size)
-    kin_state = ik_solver.fk(q_sample)
+    kin_state = ik_solver.fk(q_sample, ee)
     goal = Pose(kin_state.ee_position, kin_state.ee_quaternion)
 
     # ik_solver.attach_object_to_robot(sphere_radius=0.02)
 
-    result = ik_solver.solve(goal)
+    result = ik_solver.solve(ee, goal)
     success = result.success
     assert torch.count_nonzero(success).item() >= 9.0  # we check if atleast 90% are successful
 
@@ -157,12 +161,13 @@ def test_batch_env_ik():
         use_cuda_graph=True,
     )
     ik_solver = IKSolver(ik_config)
+    ee = ik_solver.robot_config.kinematics.kinematics_config.ee_links[0]
     b_size = 2
 
     q_sample = ik_solver.sample_configs(b_size)
-    kin_state = ik_solver.fk(q_sample)
+    kin_state = ik_solver.fk(q_sample, ee)
     goal = Pose(kin_state.ee_position, kin_state.ee_quaternion)
-    result = ik_solver.solve_batch_env(goal)
+    result = ik_solver.solve_batch_env(ee, goal)
 
     success = result.success
     assert torch.count_nonzero(success).item() >= 1.0  # we check if atleast 90% are successful
@@ -200,12 +205,13 @@ def test_batch_env_mesh_ik():
         use_cuda_graph=True,
     )
     ik_solver = IKSolver(ik_config)
+    ee = ik_solver.robot_config.kinematics.kinematics_config.ee_links[0]
     b_size = 2
 
     q_sample = ik_solver.sample_configs(b_size)
-    kin_state = ik_solver.fk(q_sample)
+    kin_state = ik_solver.fk(q_sample, ee)
     goal = Pose(kin_state.ee_position, kin_state.ee_quaternion)
-    result = ik_solver.solve_batch_env(goal)
+    result = ik_solver.solve_batch_env(ee, goal)
 
     success = result.success
     assert torch.count_nonzero(success).item() >= 1.0  # we check if atleast 90% are successful

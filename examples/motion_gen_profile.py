@@ -56,7 +56,9 @@ def demo_motion_gen():
     robot_cfg = load_yaml(join_path(get_robot_configs_path(), robot_file))["robot_cfg"]
     robot_cfg = RobotConfig.from_dict(robot_cfg, tensor_args)
     retract_cfg = robot_cfg.cspace.retract_config
-    state = motion_gen.rollout_fn.compute_kinematics(
+    ee_links = robot_cfg["kinematics"]["ee_links"]
+    ee = ee_links[0]
+    state = motion_gen.rollout_fn.compute_kinematics(ee,
         JointState.from_position(retract_cfg.view(1, -1))
     )
 

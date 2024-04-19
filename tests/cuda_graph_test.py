@@ -34,7 +34,8 @@ def test_motion_gen_mpc():
     robot_cfg = RobotConfig.from_dict(robot_cfg, tensor_args)
 
     retract_cfg = motion_gen.get_retract_config()
-    state = motion_gen.rollout_fn.compute_kinematics(
+    ee = robot_cfg.kinematics.kinematics_config.ee_links[0]
+    state = motion_gen.rollout_fn.compute_kinematics(ee,
         JointState.from_position(retract_cfg.view(1, -1))
     )
     motion_gen.warmup(warmup_js_trajopt=False)

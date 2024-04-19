@@ -122,11 +122,13 @@ def test_eval(config, expected):
     trajopt_solver = TrajOptSolver(config)
     q_start = trajopt_solver.retract_config
     q_goal = q_start.clone() + 0.1
-    kin_state = trajopt_solver.fk(q_goal)
+    ee = config.robot_config.kinematics.kinematics_config.ee_links[0]
+    kin_state = trajopt_solver.fk(q_goal, ee)
     goal_pose = Pose(kin_state.ee_position, kin_state.ee_quaternion)
     goal_state = JointState.from_position(q_goal)
     current_state = JointState.from_position(q_start)
     js_goal = Goal(goal_pose=goal_pose, goal_state=goal_state, current_state=current_state)
-    result = trajopt_solver.solve_single(js_goal)
+    ee = config.robot_config.kinematics.kinematics_config.ee_links[0]
+    result = trajopt_solver.solve_single(ee, js_goal)
 
     assert result.success.item() == expected

@@ -27,7 +27,7 @@ robot_cfg:
     - right_inner_finger_pad
     collision_sphere_buffer: 0.005
     collision_spheres: spheres/kinova_gen3.yml
-    ee_link: tool_frame
+    ee_links: ["bracelet_link"]
     self_collision_buffer:
       base_link: 0.0
       forearm_link: 0.0

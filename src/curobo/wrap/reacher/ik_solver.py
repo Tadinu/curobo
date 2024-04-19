@@ -252,7 +252,7 @@ class IKSolverConfig:
             if isinstance(robot_cfg, RobotConfig):
                 log_error("ee link cannot be changed after creating RobotConfig")
             else:
-                robot_cfg["kinematics"]["ee_link"] = ee_link_name
+                robot_cfg["kinematics"]["ee_links"] = ee_link_name
         if isinstance(robot_cfg, dict):
             robot_cfg = RobotConfig.from_dict(robot_cfg, tensor_args)
 
@@ -628,6 +628,7 @@ class IKSolver(IKSolverConfig):
 
     def solve_single(
         self,
+        ee: str,
         goal_pose: Pose,
         retract_config: Optional[T_BDOF] = None,
         seed_config: Optional[T_BDOF] = None,
@@ -682,7 +683,7 @@ class IKSolver(IKSolverConfig):
             ReacherSolveType.SINGLE, num_ik_seeds=num_seeds, batch_size=1, n_envs=1, n_goalset=1
         )
 
-        return self._solve_from_solve_state(
+        return self._solve_from_solve_state(ee,
             solve_state,
             goal_pose,
             num_seeds,
@@ -696,6 +697,7 @@ class IKSolver(IKSolverConfig):
 
     def solve_goalset(
         self,
+        ee: str,
         goal_pose: Pose,
         retract_config: Optional[T_BDOF] = None,
         seed_config: Optional[T_BDOF] = None,
@@ -754,7 +756,7 @@ class IKSolver(IKSolverConfig):
             n_envs=1,
             n_goalset=goal_pose.n_goalset,
         )
-        return self._solve_from_solve_state(
+        return self._solve_from_solve_state(ee,
             solve_state,
             goal_pose,
             num_seeds,
@@ -768,6 +770,7 @@ class IKSolver(IKSolverConfig):
 
     def solve_batch(
         self,
+        ee: str,
         goal_pose: Pose,
         retract_config: Optional[T_BDOF] = None,
         seed_config: Optional[T_BDOF] = None,
@@ -820,7 +823,7 @@ class IKSolver(IKSolverConfig):
             n_envs=1,
             n_goalset=1,
         )
-        return self._solve_from_solve_state(
+        return self._solve_from_solve_state(ee,
             solve_state,
             goal_pose,
             num_seeds,
@@ -834,6 +837,7 @@ class IKSolver(IKSolverConfig):
 
     def solve_batch_goalset(
         self,
+        ee: str,
         goal_pose: Pose,
         retract_config: Optional[T_BDOF] = None,
         seed_config: Optional[T_BDOF] = None,
@@ -884,7 +888,7 @@ class IKSolver(IKSolverConfig):
             n_envs=1,
             n_goalset=goal_pose.n_goalset,
         )
-        return self._solve_from_solve_state(
+        return self._solve_from_solve_state(ee,
             solve_state,
             goal_pose,
             num_seeds,
@@ -898,6 +902,7 @@ class IKSolver(IKSolverConfig):
 
     def solve_batch_env(
         self,
+        ee: str,
         goal_pose: Pose,
         retract_config: Optional[T_BDOF] = None,
         seed_config: Optional[T_BDOF] = None,
@@ -947,7 +952,7 @@ class IKSolver(IKSolverConfig):
             n_envs=goal_pose.batch,
             n_goalset=1,
         )
-        return self._solve_from_solve_state(
+        return self._solve_from_solve_state(ee,
             solve_state,
             goal_pose,
             num_seeds,
@@ -961,6 +966,7 @@ class IKSolver(IKSolverConfig):
 
     def solve_batch_env_goalset(
         self,
+        ee: str,
         goal_pose: Pose,
         retract_config: Optional[T_BDOF] = None,
         seed_config: Optional[T_BDOF] = None,
@@ -1011,7 +1017,7 @@ class IKSolver(IKSolverConfig):
             n_envs=goal_pose.batch,
             n_goalset=goal_pose.n_goalset,
         )
-        return self._solve_from_solve_state(
+        return self._solve_from_solve_state(ee,
             solve_state,
             goal_pose,
             num_seeds,
@@ -1025,6 +1031,7 @@ class IKSolver(IKSolverConfig):
 
     def _solve_from_solve_state(
         self,
+        ee: str,
         solve_state: ReacherSolveState,
         goal_pose: Pose,
         num_seeds: int,
@@ -1071,7 +1078,7 @@ class IKSolver(IKSolverConfig):
         if newton_iters is not None:
             self.solver.newton_optimizer.outer_iters = newton_iters
         self.solver.reset()
-        result = self.solver.solve(goal_buffer, coord_position_seed)
+        result = self.solver.solve(ee, goal_buffer, coord_position_seed)
         if newton_iters is not None:
             self.solver.newton_optimizer.outer_iters = self.og_newton_iters
         ik_result = self._get_result(num_seeds, result, goal_buffer.goal_pose, return_seeds)
@@ -1175,6 +1182,7 @@ class IKSolver(IKSolverConfig):
 
     def solve_any(
         self,
+        ee: str,
         solve_type: ReacherSolveType,
         goal_pose: Pose,
         retract_config: Optional[T_BDOF] = None,
@@ -1187,7 +1195,7 @@ class IKSolver(IKSolverConfig):
     ) -> IKResult:
         """Solve IK problem with any solve type."""
         if solve_type == ReacherSolveType.SINGLE:
-            return self.solve_single(
+            return self.solve_single(ee,
                 goal_pose,
                 retract_config,
                 seed_config,
@@ -1198,7 +1206,7 @@ class IKSolver(IKSolverConfig):
                 link_poses,
             )
         elif solve_type == ReacherSolveType.GOALSET:
-            return self.solve_goalset(
+            return self.solve_goalset(ee,
                 goal_pose,
                 retract_config,
                 seed_config,
@@ -1208,7 +1216,7 @@ class IKSolver(IKSolverConfig):
                 newton_iters,
             )
         elif solve_type == ReacherSolveType.BATCH:
-            return self.solve_batch(
+            return self.solve_batch(ee,
                 goal_pose,
                 retract_config,
                 seed_config,
@@ -1219,7 +1227,7 @@ class IKSolver(IKSolverConfig):
                 link_poses,
             )
         elif solve_type == ReacherSolveType.BATCH_GOALSET:
-            return self.solve_batch_goalset(
+            return self.solve_batch_goalset(ee,
                 goal_pose,
                 retract_config,
                 seed_config,
@@ -1229,7 +1237,7 @@ class IKSolver(IKSolverConfig):
                 newton_iters,
             )
         elif solve_type == ReacherSolveType.BATCH_ENV:
-            return self.solve_batch_env(
+            return self.solve_batch_env(ee,
                 goal_pose,
                 retract_config,
                 seed_config,
@@ -1239,7 +1247,7 @@ class IKSolver(IKSolverConfig):
                 newton_iters,
             )
         elif solve_type == ReacherSolveType.BATCH_ENV_GOALSET:
-            return self.solve_batch_env_goalset(
+            return self.solve_batch_env_goalset(ee,
                 goal_pose,
                 retract_config,
                 seed_config,
@@ -1251,6 +1259,7 @@ class IKSolver(IKSolverConfig):
 
     def solve(
         self,
+        ee: str,
         goal_pose: Pose,
         retract_config: Optional[T_BDOF] = None,
         seed_config: Optional[T_BDOF] = None,
@@ -1262,7 +1271,7 @@ class IKSolver(IKSolverConfig):
         """Deprecated API for solving single or batch problems."""
         log_warn("IKSolver.solve() is deprecated, use solve_single() or others instead")
         if goal_pose.batch == 1 and goal_pose.n_goalset == 1:
-            return self.solve_single(
+            return self.solve_single(ee,
                 goal_pose,
                 retract_config,
                 seed_config,
@@ -1292,7 +1301,7 @@ class IKSolver(IKSolverConfig):
                 newton_iters,
             )
         if goal_pose.batch == 1 and goal_pose.n_goalset > 1:
-            return self.solve_goalset(
+            return self.solve_goalset(ee,
                 goal_pose,
                 retract_config,
                 seed_config,
@@ -1412,7 +1421,7 @@ class IKSolver(IKSolverConfig):
         """Reset seed generator in IKSolver."""
         self.q_sample_gen.reset()
 
-    def check_constraints(self, q: JointState) -> RolloutMetrics:
+    def check_constraints(self, ee: str, q: JointState) -> RolloutMetrics:
         """Check constraints for joint state.
 
         Args:
@@ -1421,7 +1430,7 @@ class IKSolver(IKSolverConfig):
         Returns:
             RolloutMetrics with feasibility of joint state.
         """
-        metrics = self.rollout_fn.rollout_constraint(q.position.unsqueeze(1))
+        metrics = self.rollout_fn.rollout_constraint(ee, q.position.unsqueeze(1))
         return metrics
 
     def sample_configs(
@@ -1481,7 +1490,7 @@ class IKSolver(IKSolverConfig):
 
         return [self.kinematics for _ in range(len(self.get_all_rollout_instances))]
 
-    def fk(self, q: torch.Tensor) -> CudaRobotModelState:
+    def fk(self, q: torch.Tensor, ee: str) -> CudaRobotModelState:
         """Forward kinematics for the robot.
 
         Args:
@@ -1490,7 +1499,7 @@ class IKSolver(IKSolverConfig):
         Returns:
             :class:`CudaRobotModelState` with link poses, and link spheres for the robot.
         """
-        return self.kinematics.get_state(q)
+        return self.kinematics.get_state(q, ee)
 
     def reset_cuda_graph(self) -> None:
         """Reset the cuda graph for all rollout instances in IKSolver. Does not work currently."""

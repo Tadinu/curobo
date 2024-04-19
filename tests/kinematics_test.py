@@ -29,7 +29,7 @@ from curobo.util_file import get_robot_configs_path, join_path, load_yaml
 def cfg():
     robot_data = load_yaml(join_path(get_robot_configs_path(), "franka.yml"))
     robot_data["robot_cfg"]["kinematics"]["extra_collision_spheres"] = {"attached_object": 100}
-    cfg = CudaRobotModelConfig.from_robot_yaml_file(robot_data, "panda_hand")
+    cfg = CudaRobotModelConfig.from_robot_yaml_file(robot_data, ["panda_hand"])
     return cfg
 
 

@@ -112,11 +112,13 @@ def demo_motion_gen_simple():
         interpolation_dt=0.01,
     )
     motion_gen = MotionGen(motion_gen_config)
-    motion_gen.warmup()
+    ee = motion_gen.robot_cfg.kinematics.kinematics_config.ee_links[0]
+    ee = robot_cfg.kinematics.kinematics_config.ee_links[0]
+    motion_gen.warmup(ee)
 
     retract_cfg = motion_gen.get_retract_config()
 
-    state = motion_gen.rollout_fn.compute_kinematics(
+    state = motion_gen.rollout_fn.compute_kinematics(ee,
         JointState.from_position(retract_cfg.view(1, -1))
     )
 
@@ -155,7 +157,9 @@ def demo_motion_gen_mesh():
     robot_cfg = load_yaml(join_path(get_robot_configs_path(), robot_file))["robot_cfg"]
     robot_cfg = RobotConfig.from_dict(robot_cfg, tensor_args)
     retract_cfg = robot_cfg.cpsace.retract_config
-    state = motion_gen.rollout_fn.compute_kinematics(
+    ee_links = robot_cfg["kinematics"]["ee_links"]
+    ee = ee_links[0]
+    state = motion_gen.rollout_fn.compute_kinematics(ee,
         JointState.from_position(retract_cfg.view(1, -1))
     )
 
@@ -196,13 +200,14 @@ def demo_motion_gen(js=False):
     )
 
     motion_gen = MotionGen(motion_gen_config)
-    motion_gen.warmup()
+    ee = motion_gen_config.robot_cfg.kinematics.kinematics_config.ee_links[0]
+    motion_gen.warmup(ee)
 
-    # motion_gen.warmup(enable_graph=True, warmup_js_trajopt=js, parallel_finetune=True)
+    # motion_gen.warmup(ee, enable_graph=True, warmup_js_trajopt=js, parallel_finetune=True)
     # robot_cfg = load_yaml(join_path(get_robot_configs_path(), robot_file))["robot_cfg"]
     # robot_cfg = RobotConfig.from_dict(robot_cfg, tensor_args)
     retract_cfg = motion_gen.get_retract_config()
-    state = motion_gen.rollout_fn.compute_kinematics(
+    state = motion_gen.rollout_fn.compute_kinematics(ee,
         JointState.from_position(retract_cfg.view(1, -1))
     )
 
@@ -272,7 +277,9 @@ def demo_motion_gen_debug():
     robot_cfg = load_yaml(join_path(get_robot_configs_path(), robot_file))["robot_cfg"]
     robot_cfg = RobotConfig.from_dict(robot_cfg, tensor_args)
     retract_cfg = robot_cfg.cspace.retract_config
-    state = motion_gen.rollout_fn.compute_kinematics(
+    ee_links = robot_cfg["kinematics"]["ee_links"]
+    ee = ee_links[0]
+    state = motion_gen.rollout_fn.compute_kinematics(ee,
         JointState.from_position(retract_cfg.view(1, -1))
     )
 
@@ -309,7 +316,9 @@ def demo_motion_gen_batch():
     robot_cfg = load_yaml(join_path(get_robot_configs_path(), robot_file))["robot_cfg"]
     robot_cfg = RobotConfig.from_dict(robot_cfg, tensor_args)
     retract_cfg = motion_gen.get_retract_config()
-    state = motion_gen.rollout_fn.compute_kinematics(
+    ee_links = robot_cfg["kinematics"]["ee_links"]
+    ee = ee_links[0]
+    state = motion_gen.rollout_fn.compute_kinematics(ee,
         JointState.from_position(retract_cfg.view(1, -1))
     )
 
@@ -350,7 +359,9 @@ def demo_motion_gen_goalset():
     robot_cfg = load_yaml(join_path(get_robot_configs_path(), robot_file))["robot_cfg"]
     robot_cfg = RobotConfig.from_dict(robot_cfg, tensor_args)
     retract_cfg = motion_gen.get_retract_config()
-    state = motion_gen.rollout_fn.compute_kinematics(
+    ee_links = robot_cfg["kinematics"]["ee_links"]
+    ee = ee_links[0]
+    state = motion_gen.rollout_fn.compute_kinematics(ee,
         JointState.from_position(retract_cfg.view(1, -1))
     )
 
@@ -392,8 +403,8 @@ def demo_motion_gen_api():
         js_trajopt_tsteps=34,
     )
     motion_gen = MotionGen(motion_gen_cfg)
-
-    motion_gen.warmup(warmup_js_trajopt=False)
+    ee = motion_gen_cfg.robot_cfg.kinematics.kinematics_config.ee_links[0]
+    motion_gen.warmup(ee, warmup_js_trajopt=False)
 
     # create world representation:
 
@@ -457,7 +468,8 @@ def demo_motion_gen_batch_env(n_envs: int = 10):
     )
     motion_gen_batch_env = MotionGen(motion_gen_config)
     motion_gen_batch_env.reset()
-    motion_gen_batch_env.warmup(
+    ee = motion_gen_config.robot_cfg.kinematics.kinematics_config.ee_links[0]
+    motion_gen_batch_env.warmup(ee,
         enable_graph=False, batch=n_envs, warmup_js_trajopt=False, batch_env_mode=True
     )
     retract_cfg = motion_gen_batch_env.get_retract_config().clone()

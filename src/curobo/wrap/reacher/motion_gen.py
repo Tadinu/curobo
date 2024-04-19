@@ -206,7 +206,7 @@ class MotionGenConfig:
         use_gradient_descent: bool = False,
         collision_cache: Optional[Dict[str, int]] = None,
         n_collision_envs: Optional[int] = None,
-        ee_link_name: Optional[str] = None,
+        ee_link_names: Optional[List[str]] = None,
         use_es_ik: Optional[bool] = None,
         use_es_trajopt: Optional[bool] = None,
         es_ik_learning_rate: float = 1.0,
@@ -583,8 +583,8 @@ class MotionGenConfig:
             robot_cfg = robot_cfg["robot_cfg"]
         if isinstance(robot_cfg, RobotConfig):
             if (
-                ee_link_name is not None
-                and robot_cfg.kinematics.kinematics_config.ee_link != ee_link_name
+                ee_link_names is not None
+                and set(robot_cfg.kinematics.kinematics_config.ee_links).difference(set(ee_link_names))
             ):
                 log_error("ee link cannot be changed after creating RobotConfig")
             if (
@@ -600,8 +600,8 @@ class MotionGenConfig:
             ):
                 log_error("velocity cannot be changed after creating RobotConfig")
         else:
-            if ee_link_name is not None:
-                robot_cfg["kinematics"]["ee_link"] = ee_link_name
+            if ee_link_names is not None:
+                robot_cfg["kinematics"]["ee_links"] = ee_link_names
             if jerk_scale is not None:
                 robot_cfg["kinematics"]["cspace"]["jerk_scale"] = jerk_scale
             if acceleration_scale is not None:
@@ -1487,6 +1487,7 @@ class MotionGen(MotionGenConfig):
 
     def solve_ik(
         self,
+        ee: str,
         goal_pose: Pose,
         retract_config: Optional[T_BDOF] = None,
         seed_config: Optional[T_BDOF] = None,
@@ -1515,7 +1516,7 @@ class MotionGen(MotionGenConfig):
         Returns:
             IKResult: Result of inverse kinematics.
         """
-        return self.ik_solver.solve(
+        return self.ik_solver.solve(ee,
             goal_pose,
             retract_config,
             seed_config,
@@ -1527,7 +1528,7 @@ class MotionGen(MotionGenConfig):
 
     @profiler.record_function("motion_gen/graph_search")
     def graph_search(
-        self, start_config: T_BDOF, goal_config: T_BDOF, interpolation_steps: Optional[int] = None
+        self, ee: str, start_config: T_BDOF, goal_config: T_BDOF, interpolation_steps: Optional[int] = None
     ) -> GraphResult:
         """Run graph search to find collision-free paths between start and goal configurations.
 
@@ -1539,7 +1540,7 @@ class MotionGen(MotionGenConfig):
         Returns:
             GraphResult: Result of graph search.
         """
-        return self.graph_planner.find_paths(start_config, goal_config, interpolation_steps)
+        return self.graph_planner.find_paths(ee, start_config, goal_config, interpolation_steps)
 
     def plan_single(
         self,
@@ -1547,6 +1548,7 @@ class MotionGen(MotionGenConfig):
         goal_pose: Pose,
         plan_config: MotionGenPlanConfig = MotionGenPlanConfig(),
         link_poses: List[Pose] = None,
+        ee: Optional[str] = None
     ) -> MotionGenResult:
         """Plan a single motion to reach a goal pose from a start joint state.
 
@@ -1573,7 +1575,9 @@ class MotionGen(MotionGenConfig):
             ReacherSolveType.SINGLE, plan_config, goal_pose, start_state
         )
 
-        result = self._plan_attempts(
+        if ee is None:
+            ee = self.robot_cfg.kinematics.kinematics_config.ee_links[0]
+        result = self._plan_attempts(ee,
             solve_state,
             start_state,
             goal_pose,
@@ -1588,6 +1592,7 @@ class MotionGen(MotionGenConfig):
         goal_pose: Pose,
         plan_config: MotionGenPlanConfig = MotionGenPlanConfig(),
         link_poses: List[Pose] = None,
+        ee: Optional[str] = None,
     ) -> MotionGenResult:
         """Plan a single motion to reach a goal from set of poses, from a start joint state.
 
@@ -1612,7 +1617,9 @@ class MotionGen(MotionGenConfig):
             ReacherSolveType.GOALSET, plan_config, goal_pose, start_state
         )
 
-        result = self._plan_attempts(
+        if ee is None:
+            ee = self.robot_cfg.kinematics.kinematics_config.ee_links[0]
+        result = self._plan_attempts(ee,
             solve_state,
             start_state,
             goal_pose,
@@ -1623,6 +1630,7 @@ class MotionGen(MotionGenConfig):
 
     def plan_batch(
         self,
+        ee: str,
         start_state: JointState,
         goal_pose: Pose,
         plan_config: MotionGenPlanConfig = MotionGenPlanConfig(),
@@ -1646,7 +1654,7 @@ class MotionGen(MotionGenConfig):
             ReacherSolveType.BATCH, plan_config, goal_pose, start_state
         )
 
-        result = self._plan_batch_attempts(
+        result = self._plan_batch_attempts(ee,
             solve_state,
             start_state,
             goal_pose,
@@ -1657,6 +1665,7 @@ class MotionGen(MotionGenConfig):
 
     def plan_batch_goalset(
         self,
+        ee: str,
         start_state: JointState,
         goal_pose: Pose,
         plan_config: MotionGenPlanConfig = MotionGenPlanConfig(),
@@ -1681,7 +1690,7 @@ class MotionGen(MotionGenConfig):
             ReacherSolveType.BATCH_GOALSET, plan_config, goal_pose, start_state
         )
 
-        result = self._plan_batch_attempts(
+        result = self._plan_batch_attempts(ee,
             solve_state,
             start_state,
             goal_pose,
@@ -1692,6 +1701,7 @@ class MotionGen(MotionGenConfig):
 
     def plan_batch_env(
         self,
+        ee: str,
         start_state: JointState,
         goal_pose: Pose,
         plan_config: MotionGenPlanConfig = MotionGenPlanConfig(),
@@ -1727,7 +1737,7 @@ class MotionGen(MotionGenConfig):
         solve_state = self._get_solve_state(
             ReacherSolveType.BATCH_ENV, plan_config, goal_pose, start_state
         )
-        result = self._plan_batch_attempts(
+        result = self._plan_batch_attempts(ee,
             solve_state,
             start_state,
             goal_pose,
@@ -1738,6 +1748,7 @@ class MotionGen(MotionGenConfig):
 
     def plan_batch_env_goalset(
         self,
+        ee: str,
         start_state: JointState,
         goal_pose: Pose,
         plan_config: MotionGenPlanConfig = MotionGenPlanConfig(),
@@ -1774,7 +1785,7 @@ class MotionGen(MotionGenConfig):
         solve_state = self._get_solve_state(
             ReacherSolveType.BATCH_ENV_GOALSET, plan_config, goal_pose, start_state
         )
-        result = self._plan_batch_attempts(
+        result = self._plan_batch_attempts(ee,
             solve_state,
             start_state,
             goal_pose,
@@ -1792,7 +1803,8 @@ class MotionGen(MotionGenConfig):
         Returns:
             KinematicModelState: Kinematic state of the robot.
         """
-        out = self.rollout_fn.compute_kinematics(state)
+        ee = self.robot_cfg.kinematics.kinematics_config.ee_links[0]
+        out = self.rollout_fn.compute_kinematics(ee, state)
         return out
 
     @property
@@ -1810,7 +1822,7 @@ class MotionGen(MotionGenConfig):
         """Returns the collision cache created by the world collision checker."""
         return self.world_coll_checker.cache
 
-    def check_constraints(self, state: JointState) -> RolloutMetrics:
+    def check_constraints(self, ee:str, state: JointState) -> RolloutMetrics:
         """Compute IK constraints for a given joint state.
 
         Args:
@@ -1819,7 +1831,7 @@ class MotionGen(MotionGenConfig):
         Returns:
             RolloutMetrics: Metrics for the joint state.
         """
-        metrics = self.ik_solver.check_constraints(state)
+        metrics = self.ik_solver.check_constraints(ee, state)
         return metrics
 
     def update_world(self, world: WorldConfig):
@@ -1867,6 +1879,7 @@ class MotionGen(MotionGenConfig):
 
     def warmup(
         self,
+        ee: str,
         enable_graph: bool = True,
         batch: Optional[int] = None,
         warmup_js_trajopt: bool = True,
@@ -1903,7 +1916,7 @@ class MotionGen(MotionGenConfig):
             goal_state = start_state.clone()
             goal_state.position[..., warmup_joint_index] += warmup_joint_delta
             for _ in range(3):
-                self.plan_single_js(
+                self.plan_single_js(ee,
                     start_state.clone(),
                     goal_state.clone(),
                     MotionGenPlanConfig(max_attempts=1, enable_finetune_trajopt=True),
@@ -1915,7 +1928,7 @@ class MotionGen(MotionGenConfig):
                 joint_names=self.rollout_fn.joint_names,
             )
             start_state.position[..., warmup_joint_index] += warmup_joint_delta
-            self.graph_planner.warmup(
+            self.graph_planner.warmup(ee,
                 self.rollout_fn.dynamics_model.retract_config.view(1, -1).clone(),
                 start_state.position,
             )
@@ -1925,14 +1938,14 @@ class MotionGen(MotionGenConfig):
                 self.rollout_fn.dynamics_model.retract_config.view(1, -1).clone(),
                 joint_names=self.rollout_fn.joint_names,
             )
-            state = self.rollout_fn.compute_kinematics(start_state)
+            state = self.rollout_fn.compute_kinematics(ee, start_state)
             link_poses = state.link_pose
 
             if n_goalset == -1:
                 retract_pose = Pose(state.ee_pos_seq, quaternion=state.ee_quat_seq)
                 start_state.position[..., warmup_joint_index] += warmup_joint_delta
                 for _ in range(3):
-                    self.plan_single(
+                    self.plan_single(ee,
                         start_state,
                         retract_pose,
                         MotionGenPlanConfig(
@@ -1943,7 +1956,7 @@ class MotionGen(MotionGenConfig):
                         link_poses=link_poses,
                     )
 
-                self.plan_single(
+                self.plan_single(ee,
                     start_state,
                     retract_pose,
                     MotionGenPlanConfig(
@@ -1989,7 +2002,7 @@ class MotionGen(MotionGenConfig):
                 self.get_retract_config().view(1, -1).clone(),
                 joint_names=self.rollout_fn.joint_names,
             ).repeat_seeds(batch)
-            state = self.rollout_fn.compute_kinematics(start_state)
+            state = self.rollout_fn.compute_kinematics(ee, start_state)
             link_poses = state.link_pose
 
             if n_goalset == -1:
@@ -1998,7 +2011,7 @@ class MotionGen(MotionGenConfig):
 
                 for _ in range(3):
                     if batch_env_mode:
-                        self.plan_batch_env(
+                        self.plan_batch_env(ee,
                             start_state,
                             retract_pose,
                             MotionGenPlanConfig(
@@ -2010,7 +2023,7 @@ class MotionGen(MotionGenConfig):
                             link_poses=link_poses,
                         )
                     else:
-                        self.plan_batch(
+                        self.plan_batch(ee,
                             start_state,
                             retract_pose,
                             MotionGenPlanConfig(
@@ -2031,7 +2044,7 @@ class MotionGen(MotionGenConfig):
                 start_state.position[..., warmup_joint_index] += warmup_joint_delta
                 for _ in range(3):
                     if batch_env_mode:
-                        self.plan_batch_env_goalset(
+                        self.plan_batch_env_goalset(ee,
                             start_state,
                             retract_pose,
                             MotionGenPlanConfig(
@@ -2042,7 +2055,7 @@ class MotionGen(MotionGenConfig):
                             link_poses=link_poses,
                         )
                     else:
-                        self.plan_batch_goalset(
+                        self.plan_batch_goalset(ee,
                             start_state,
                             retract_pose,
                             MotionGenPlanConfig(
@@ -2058,6 +2071,7 @@ class MotionGen(MotionGenConfig):
 
     def plan_single_js(
         self,
+        ee: str,
         start_state: JointState,
         goal_state: JointState,
         plan_config: MotionGenPlanConfig = MotionGenPlanConfig(),
@@ -2103,7 +2117,7 @@ class MotionGen(MotionGenConfig):
         force_graph = plan_config.enable_graph
         valid_query = True
         if plan_config.check_start_validity:
-            valid_query, status = self.check_start_state(start_state)
+            valid_query, status = self.check_start_state(ee, start_state)
             if not valid_query:
                 result = MotionGenResult(
                     success=torch.as_tensor([False], device=self.tensor_args.device),
@@ -2113,7 +2127,7 @@ class MotionGen(MotionGenConfig):
                 return result
 
         for n in range(plan_config.max_attempts):
-            result = self._plan_js_from_solve_state(
+            result = self._plan_js_from_solve_state(ee,
                 solve_state, start_state, goal_state, plan_config=plan_config
             )
             time_dict["trajopt_time"] += result.trajopt_time
@@ -2193,6 +2207,7 @@ class MotionGen(MotionGenConfig):
 
     def update_pose_cost_metric(
         self,
+        ee: str,
         metric: PoseCostMetric,
         start_state: Optional[JointState] = None,
         goal_pose: Optional[Pose] = None,
@@ -2326,6 +2341,7 @@ class MotionGen(MotionGenConfig):
 
     def attach_objects_to_robot(
         self,
+        ee: str,
         joint_state: JointState,
         object_names: List[str],
         surface_sphere_radius: float = 0.001,
@@ -2424,6 +2440,7 @@ class MotionGen(MotionGenConfig):
 
     def attach_external_objects_to_robot(
         self,
+        ee: str,
         joint_state: JointState,
         external_objects: List[Obstacle],
         surface_sphere_radius: float = 0.001,
@@ -2529,6 +2546,7 @@ class MotionGen(MotionGenConfig):
 
     def attach_bounding_box_from_blox_to_robot(
         self,
+        ee: str,
         joint_state: JointState,
         bounding_box: Cuboid,
         blox_layer_name: Optional[str] = None,
@@ -2585,6 +2603,7 @@ class MotionGen(MotionGenConfig):
 
     def attach_new_object_to_robot(
         self,
+        ee: str,
         joint_state: JointState,
         obstacle: Obstacle,
         surface_sphere_radius: float = 0.001,
@@ -2599,7 +2618,7 @@ class MotionGen(MotionGenConfig):
 
         """
         log_warn("Deprecated. Use attach_external_objects_to_robot instead")
-        return self.attach_external_objects_to_robot(
+        return self.attach_external_objects_to_robot(ee,
             joint_state=joint_state,
             external_objects=[obstacle],
             surface_sphere_radius=surface_sphere_radius,
@@ -2720,7 +2739,7 @@ class MotionGen(MotionGenConfig):
         self.kinematics.update_kinematics_config(robot_cfg.kinematics.kinematics_config)
 
     def check_start_state(
-        self, start_state: JointState
+        self, ee: str, start_state: JointState
     ) -> Tuple[bool, Union[None, MotionGenStatus]]:
         """Check if the start state is valid for motion generation.
 
@@ -2739,8 +2758,8 @@ class MotionGen(MotionGenConfig):
         if len(joint_position.shape) > 2:
             log_error("joint_position should be of shape (batch, dof)")
         joint_position = joint_position.unsqueeze(1)
-        metrics = self.rollout_fn.rollout_constraint(
-            joint_position,
+        metrics = self.rollout_fn.rollout_constraint(ee,
+            act_seq=joint_position,
             use_batch_env=False,
         )
         valid_query = metrics.feasible.squeeze(1).item()
@@ -2749,7 +2768,7 @@ class MotionGen(MotionGenConfig):
             self.rollout_fn.primitive_collision_constraint.disable_cost()
             self.rollout_fn.robot_self_collision_constraint.disable_cost()
             within_joint_limits = (
-                self.rollout_fn.rollout_constraint(
+                self.rollout_fn.rollout_constraint(ee,
                     joint_position,
                     use_batch_env=False,
                 )
@@ -2765,7 +2784,7 @@ class MotionGen(MotionGenConfig):
 
             self.rollout_fn.primitive_collision_constraint.enable_cost()
             world_collision_free = (
-                self.rollout_fn.rollout_constraint(
+                self.rollout_fn.rollout_constraint(ee,
                     joint_position,
                     use_batch_env=False,
                 )
@@ -2793,6 +2812,7 @@ class MotionGen(MotionGenConfig):
     @profiler.record_function("motion_gen/ik")
     def _solve_ik_from_solve_state(
         self,
+        ee: str,
         goal_pose: Pose,
         solve_state: ReacherSolveState,
         start_state: JointState,
@@ -2817,7 +2837,8 @@ class MotionGen(MotionGenConfig):
         newton_iters = None
         if partial_ik_opt:
             newton_iters = self.partial_ik_iters
-        ik_result = self.ik_solver.solve_any(
+        print(start_state.position)
+        ik_result = self.ik_solver.solve_any(ee,
             solve_state.solve_type,
             goal_pose,
             start_state.position.view(-1, self._dof),
@@ -2833,6 +2854,7 @@ class MotionGen(MotionGenConfig):
     @profiler.record_function("motion_gen/trajopt_solve")
     def _solve_trajopt_from_solve_state(
         self,
+        ee: str,
         goal: Goal,
         solve_state: ReacherSolveState,
         act_seed: Optional[JointState] = None,
@@ -2864,7 +2886,7 @@ class MotionGen(MotionGenConfig):
             trajopt_instance = self.trajopt_solver
         if num_seeds_override is None:
             num_seeds_override = solve_state.num_trajopt_seeds
-        traj_result = trajopt_instance.solve_any(
+        traj_result = trajopt_instance.solve_any(ee,
             solve_state.solve_type,
             goal,
             act_seed,
@@ -2983,6 +3005,7 @@ class MotionGen(MotionGenConfig):
 
     def _plan_attempts(
         self,
+        ee: str,
         solve_state: ReacherSolveState,
         start_state: JointState,
         goal_pose: Pose,
@@ -3005,7 +3028,7 @@ class MotionGen(MotionGenConfig):
         valid_query = True
         plan_config = plan_config.clone()
         if plan_config.check_start_validity:
-            valid_query, status = self.check_start_state(start_state)
+            valid_query, status = self.check_start_state(ee, start_state)
             if not valid_query:
                 result = MotionGenResult(
                     success=torch.as_tensor([False], device=self.tensor_args.device),
@@ -3014,7 +3037,7 @@ class MotionGen(MotionGenConfig):
                 )
                 return result
         if plan_config.pose_cost_metric is not None:
-            valid_query = self.update_pose_cost_metric(
+            valid_query = self.update_pose_cost_metric(ee,
                 plan_config.pose_cost_metric, start_state, goal_pose
             )
             if not valid_query:
@@ -3043,7 +3066,7 @@ class MotionGen(MotionGenConfig):
             plan_config.finetune_dt_scale = self.finetune_dt_scale
         for n in range(plan_config.max_attempts):
             log_info("MG Iter: " + str(n))
-            result = self._plan_from_solve_state(
+            result = self._plan_from_solve_state(ee,
                 solve_state,
                 start_state,
                 goal_pose,
@@ -3112,7 +3135,7 @@ class MotionGen(MotionGenConfig):
         result.attempts = n + 1
         torch.cuda.synchronize(device=self.tensor_args.device)
         if plan_config.pose_cost_metric is not None:
-            self.update_pose_cost_metric(PoseCostMetric.reset_metric())
+            self.update_pose_cost_metric(ee, PoseCostMetric.reset_metric())
         if plan_config.time_dilation_factor is not None and torch.count_nonzero(result.success) > 0:
             result.retime_trajectory(
                 plan_config.time_dilation_factor,
@@ -3124,6 +3147,7 @@ class MotionGen(MotionGenConfig):
 
     def _plan_batch_attempts(
         self,
+        ee: str,
         solve_state: ReacherSolveState,
         start_state: JointState,
         goal_pose: Pose,
@@ -3146,7 +3170,7 @@ class MotionGen(MotionGenConfig):
         plan_config = plan_config.clone()
         goal_pose = goal_pose.clone()
         if plan_config.pose_cost_metric is not None:
-            valid_query = self.update_pose_cost_metric(
+            valid_query = self.update_pose_cost_metric(ee,
                 plan_config.pose_cost_metric, start_state, goal_pose
             )
             if not valid_query:
@@ -3261,17 +3285,12 @@ class MotionGen(MotionGenConfig):
         torch.cuda.synchronize(device=self.tensor_args.device)
         if plan_config.pose_cost_metric is not None:
             self.update_pose_cost_metric(PoseCostMetric.reset_metric())
-
-        if plan_config.time_dilation_factor is not None and torch.count_nonzero(result.success) > 0:
-            result.retime_trajectory(
-                plan_config.time_dilation_factor,
-                interpolation_kind=self.finetune_trajopt_solver.interpolation_type,
-            )
         best_result.total_time = time.time() - start_time
         return best_result
 
     def _plan_from_solve_state(
         self,
+        ee: str,
         solve_state: ReacherSolveState,
         start_state: JointState,
         goal_pose: Pose,
@@ -3305,7 +3324,7 @@ class MotionGen(MotionGenConfig):
             )
         # plan ik:
 
-        ik_result = self._solve_ik_from_solve_state(
+        ik_result = self._solve_ik_from_solve_state(ee,
             goal_pose,
             solve_state,
             start_state,
@@ -3350,7 +3369,7 @@ class MotionGen(MotionGenConfig):
             if plan_config.enable_opt:
                 interpolation_steps = self.trajopt_solver.action_horizon
             log_info("MG: running GP")
-            graph_result = self.graph_search(start_config, goal_config, interpolation_steps)
+            graph_result = self.graph_search(ee, start_config, goal_config, interpolation_steps)
             trajopt_seed_success = graph_result.success
 
             graph_success = torch.count_nonzero(graph_result.success).item()
@@ -3497,7 +3516,7 @@ class MotionGen(MotionGenConfig):
                 self.trajopt_solver.interpolation_type = InterpolateType.LINEAR_CUDA
             with profiler.record_function("motion_gen/trajopt"):
                 log_info("MG: running TO")
-                traj_result = self._solve_trajopt_from_solve_state(
+                traj_result = self._solve_trajopt_from_solve_state(ee,
                     goal,
                     solve_state,
                     trajopt_seed_traj,
@@ -3538,7 +3557,7 @@ class MotionGen(MotionGenConfig):
                             )
                             self.finetune_trajopt_solver.update_solver_dt(scaled_dt.item())
 
-                        traj_result = self._solve_trajopt_from_solve_state(
+                        traj_result = self._solve_trajopt_from_solve_state(ee,
                             goal,
                             solve_state,
                             seed_traj,
@@ -3592,6 +3611,7 @@ class MotionGen(MotionGenConfig):
 
     def _plan_js_from_solve_state(
         self,
+        ee: str,
         solve_state: ReacherSolveState,
         start_state: JointState,
         goal_state: JointState,
@@ -3633,7 +3653,7 @@ class MotionGen(MotionGenConfig):
             if plan_config.enable_opt:
                 interpolation_steps = self.js_trajopt_solver.action_horizon
             log_info("MG: running GP")
-            graph_result = self.graph_search(start_config, goal_config, interpolation_steps)
+            graph_result = self.graph_search(ee, start_config, goal_config, interpolation_steps)
             trajopt_seed_success = graph_result.success
 
             graph_success = torch.count_nonzero(graph_result.success).item()
@@ -3745,7 +3765,7 @@ class MotionGen(MotionGenConfig):
                 self.js_trajopt_solver.interpolation_type = InterpolateType.LINEAR_CUDA
             with profiler.record_function("motion_gen/trajopt"):
                 log_info("MG: running TO")
-                traj_result = self._solve_trajopt_from_solve_state(
+                traj_result = self._solve_trajopt_from_solve_state(ee,
                     goal,
                     solve_state,
                     trajopt_seed_traj,
@@ -3780,7 +3800,7 @@ class MotionGen(MotionGenConfig):
 
                         if self.optimize_dt:
                             self.finetune_js_trajopt_solver.update_solver_dt(scaled_dt.item())
-                        traj_result = self._solve_trajopt_from_solve_state(
+                        traj_result = self._solve_trajopt_from_solve_state(ee,
                             goal,
                             solve_state,
                             seed_traj,
@@ -3831,6 +3851,7 @@ class MotionGen(MotionGenConfig):
 
     def _plan_from_solve_state_batch(
         self,
+        ee: str,
         solve_state: ReacherSolveState,
         start_state: JointState,
         goal_pose: Pose,
@@ -3908,7 +3929,7 @@ class MotionGen(MotionGenConfig):
             start_config = start_graph_state.position[ik_result.success.view(-1)].view(
                 -1, self.ik_solver.dof
             )
-            graph_result = self.graph_search(start_config, goal_config, interpolation_steps)
+            graph_result = self.graph_search(ee, start_config, goal_config, interpolation_steps)
             graph_success = torch.count_nonzero(graph_result.success).item()
 
             result.graph_time = graph_result.solve_time
@@ -4037,7 +4058,7 @@ class MotionGen(MotionGenConfig):
                 og_value = self.trajopt_solver.interpolation_type
                 self.trajopt_solver.interpolation_type = InterpolateType.LINEAR_CUDA
 
-            traj_result = self._solve_trajopt_from_solve_state(
+            traj_result = self._solve_trajopt_from_solve_state(ee,
                 goal,
                 solve_state,
                 trajopt_seed_traj,
@@ -4067,7 +4088,7 @@ class MotionGen(MotionGenConfig):
                     )
                     self.finetune_trajopt_solver.update_solver_dt(scaled_dt.item())
 
-                    traj_result = self._solve_trajopt_from_solve_state(
+                    traj_result = self._solve_trajopt_from_solve_state(ee,
                         goal,
                         solve_state,
                         seed_traj,
@@ -4104,6 +4125,7 @@ class MotionGen(MotionGenConfig):
 
     def plan(
         self,
+        ee: str,
         start_state: JointState,
         goal_pose: Pose,
         enable_graph: bool = True,
@@ -4139,11 +4161,12 @@ class MotionGen(MotionGenConfig):
             num_graph_seeds,
             num_trajopt_seeds,
         )
-        result = self.plan_single(start_state, goal_pose, plan_config)
+        result = self.plan_single(ee, start_state, goal_pose, plan_config)
         return result
 
     def batch_plan(
         self,
+        ee: str,
         start_state: JointState,
         goal_pose: Pose,
         enable_graph: bool = True,
@@ -4183,7 +4206,7 @@ class MotionGen(MotionGenConfig):
             success_ratio=success_ratio,
             fail_on_invalid_query=fail_on_invalid_query,
         )
-        result = self.plan_batch(start_state, goal_pose, plan_config)
+        result = self.plan_batch(ee, start_state, goal_pose, plan_config)
         return result
 
     def toggle_link_collision(self, collision_link_names: List[str], enable_flag: bool):

@@ -41,7 +41,8 @@ def motion_gen(request):
     )
     motion_gen_instance = MotionGen(motion_gen_config)
 
-    motion_gen_instance.warmup(
+    ee = motion_gen_config.robot_cfg.kinematics.kinematics_config.ee_links[0]
+    motion_gen_instance.warmup(ee,
         enable_graph=False, warmup_js_trajopt=False, n_goalset=request.param[1]
     )
     return motion_gen_instance
@@ -57,7 +58,7 @@ def motion_gen(request):
     ],
     indirect=True,
 )
-def test_approach_grasp_pose(motion_gen):
+def test_approach_grasp_pose(ee: str, motion_gen):
     # run full pose planning
     retract_cfg = motion_gen.get_retract_config()
 
@@ -94,6 +95,7 @@ def test_approach_grasp_pose(motion_gen):
 def test_reach_only_position(motion_gen):
     retract_cfg = motion_gen.get_retract_config()
 
+    ee = motion_gen.robot_cfg.kinematics.kinematics_config.ee_links[0]
     state = motion_gen.compute_kinematics(JointState.from_position(retract_cfg.view(1, -1)))
 
     goal_pose = state.ee_pose.clone()
@@ -131,6 +133,7 @@ def test_reach_only_position(motion_gen):
 def test_reach_only_orientation(motion_gen):
     retract_cfg = motion_gen.get_retract_config()
 
+    ee = motion_gen.robot_cfg.kinematics.kinematics_config.ee_links[0]
     state = motion_gen.compute_kinematics(JointState.from_position(retract_cfg.view(1, -1)))
 
     goal_pose = state.ee_pose.clone()

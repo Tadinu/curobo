@@ -74,7 +74,8 @@ def test_motion_gen_lock_js_update():
         use_cuda_graph=True,
     )
     motion_gen_instance = MotionGen(motion_gen_config)
-    motion_gen_instance.warmup()
+    ee = motion_gen_config.robot_cfg.kinematics.kinematics_config.ee_links[0]
+    motion_gen_instance.warmup(ee)
     retract_cfg = motion_gen_instance.get_retract_config()
     start_state = JointState.from_position(retract_cfg.view(1, -1))
 

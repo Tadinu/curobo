@@ -73,12 +73,12 @@ class TestRobots:
             tensor_args=tensor_args,
         )
         ik_solver = IKSolver(ik_config)
+        ee = ik_solver.robot_config.kinematics.kinematics_config.ee_links[0]
         b_size = 10
         q_sample = ik_solver.sample_configs(b_size)
-        kin_state = ik_solver.fk(q_sample)
+        kin_state = ik_solver.fk(q_sample, ee)
         goal = Pose(kin_state.ee_position, kin_state.ee_quaternion)
-        result = ik_solver.solve(goal)
-        result = ik_solver.solve(goal)
+        result = ik_solver.solve(ee, goal)
 
         success = result.success
         assert torch.count_nonzero(success).item() >= 9.0  # we check if atleast 90% are successful

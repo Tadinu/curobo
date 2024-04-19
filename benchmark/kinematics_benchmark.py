@@ -63,6 +63,8 @@ def load_curobo(robot_file, world_file):
 
 def bench_collision_curobo(robot_file, world_file, q_test, use_cuda_graph=True):
     arm_base = load_curobo(robot_file, world_file)
+    ee = arm_base.model_cfg.robot_config.kinematics.kinematics_config.ee_links[0]
+
     # load graph module:
     tensor_args = TensorDeviceType()
     q_test = tensor_args.to_device(q_test).unsqueeze(1)
@@ -72,13 +74,13 @@ def bench_collision_curobo(robot_file, world_file, q_test, use_cuda_graph=True):
 
     if not use_cuda_graph:
         for _ in range(10):
-            out = arm_base.rollout_constraint(q_warm)
+            out = arm_base.rollout_constraint(ee, q_warm)
             torch.cuda.synchronize()
 
         torch.cuda.synchronize()
 
         st_time = time.time()
-        out = arm_base.rollout_constraint(q_test)
+        out = arm_base.rollout_constraint(ee, q_test)
 
         torch.cuda.synchronize()
         dt = time.time() - st_time
@@ -90,10 +92,10 @@ def bench_collision_curobo(robot_file, world_file, q_test, use_cuda_graph=True):
         s.wait_stream(torch.cuda.current_stream())
         with torch.cuda.stream(s):
             for i in range(3):
-                out = arm_base.rollout_constraint(q_warm)
+                out = arm_base.rollout_constraint(ee, q_warm)
         torch.cuda.current_stream().wait_stream(s)
         with torch.cuda.graph(g):
-            out = arm_base.rollout_constraint(q_warm)
+            out = arm_base.rollout_constraint(ee, q_warm)
 
         for _ in range(10):
             q.copy_(q_warm.detach())
@@ -129,17 +131,20 @@ def bench_kin_curobo(robot_file, q_test, use_cuda_graph=True, use_coll_spheres=T
     robot_cfg = RobotConfig.from_dict(robot_data)
     robot_model = CudaRobotModel(robot_cfg.kinematics)
 
+    ee_links = robot_data["kinematics"]["ee_links"]
     if not use_cuda_graph:
         for _ in range(10):
             q = torch.rand((b_size, robot_model.get_dof()), **vars(tensor_args))
-            out = robot_model.forward(q)
+            for ee in ee_links:
+                robot_model.forward(q, ee)
             torch.cuda.synchronize()
 
         q = torch.rand((b_size, robot_model.get_dof()), **vars(tensor_args))
         torch.cuda.synchronize()
 
         st_time = time.time()
-        out = robot_model.forward(q)
+        for ee in ee_links:
+            robot_model.forward(q, ee)
         torch.cuda.synchronize()
         dt = time.time() - st_time
     else:
@@ -151,10 +156,12 @@ def bench_kin_curobo(robot_file, q_test, use_cuda_graph=True, use_coll_spheres=T
         s.wait_stream(torch.cuda.current_stream())
         with torch.cuda.stream(s):
             for i in range(3):
-                ee_mat, _, _, _, _, _, _ = robot_model.forward(q=q)
+                for ee in ee_links:
+                    ee_mat, _, _, _, _, _, _ = robot_model.forward(q=q, ee=ee)
         torch.cuda.current_stream().wait_stream(s)
         with torch.cuda.graph(g):
-            ee_mat, _, _, _, _, _, _ = robot_model.forward(q=q)
+            for ee in ee_links:
+                ee_mat, _, _, _, _, _, _ = robot_model.forward(q=q, ee=ee)
         q_new = torch.rand((b_size, robot_model.get_dof()), **vars(tensor_args))
 
         for _ in range(10):

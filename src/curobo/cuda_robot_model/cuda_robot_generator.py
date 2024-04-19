@@ -63,13 +63,13 @@ class CudaRobotGeneratorConfig:
     #: Name of base link for kinematic tree.
     base_link: str
 
-    #: Name of end-effector link to compute pose.
-    ee_link: str
+    #: Name of end-effector links to compute pose.
+    ee_links: List[str]
 
     #: Device to load cuda robot model.
     tensor_args: TensorDeviceType = TensorDeviceType()
 
-    #: Name of link names to compute pose in addition to ee_link.
+    #: Name of link names to compute pose in addition to ee_links.
     link_names: Optional[List[str]] = None
 
     #: Name of links to compute sphere positions for use in collision checking.
@@ -182,11 +182,11 @@ class CudaRobotGeneratorConfig:
             log_warn("Deprecated: external_robot_configs_path is deprecated, use ContentPath")
             robot_path = self.external_robot_configs_path
 
-        if self.urdf_path is not None:
+        if self.urdf_path is not None and not os.path.isabs(self.urdf_path):
             self.urdf_path = join_path(asset_path, self.urdf_path)
-        if self.usd_path is not None:
+        if self.usd_path is not None and not os.path.isabs(self.usd_path):
             self.usd_path = join_path(asset_path, self.usd_path)
-        if self.asset_root_path != "":
+        if self.asset_root_path != "" and not os.path.isabs(self.asset_root_path):
             self.asset_root_path = join_path(asset_path, self.asset_root_path)
         elif self.urdf_path is not None:
             self.asset_root_path = os.path.dirname(self.urdf_path)
@@ -203,11 +203,12 @@ class CudaRobotGeneratorConfig:
                     if i not in self.link_names:
                         self.link_names.append(i)
         if self.link_names is None:
-            self.link_names = [self.ee_link]
+            self.link_names = self.ee_links
         if self.collision_link_names is None:
             self.collision_link_names = []
-        if self.ee_link not in self.link_names:
-            self.link_names.append(self.ee_link)
+        for ee_link in self.ee_links:
+            if ee_link not in self.link_names:
+                self.link_names.append(ee_link)
         if self.collision_spheres is not None:
             if isinstance(self.collision_spheres, str):
                 coll_yml = join_path(robot_path, self.collision_spheres)
@@ -332,10 +333,10 @@ class CudaRobotGenerator(CudaRobotGeneratorConfig):
             )
 
         if self.lock_joints is None:
-            self._build_kinematics(self.base_link, self.ee_link, other_links, self.link_names)
+            self._build_kinematics(self.base_link, self.ee_links, other_links, self.link_names)
         else:
             self._build_kinematics_with_lock_joints(
-                self.base_link, self.ee_link, other_links, self.link_names, self.lock_joints
+                self.base_link, self.ee_links, other_links, self.link_names, self.lock_joints
             )
         if self.cspace is None:
             jpv = self._get_joint_position_velocity_limits()
@@ -345,7 +346,7 @@ class CudaRobotGenerator(CudaRobotGeneratorConfig):
 
         self.cspace.inplace_reindex(self.joint_names)
         self._update_joint_limits()
-        self._ee_idx = self.link_names.index(self.ee_link)
+        self._ee_idxes = [self.link_names.index(ee_link) for ee_link in self.ee_links]
 
         # create kinematics tensor:
         self._kinematics_config = KinematicsTensorConfig(
@@ -366,11 +367,11 @@ class CudaRobotGenerator(CudaRobotGeneratorConfig):
             link_name_to_idx_map=self._name_to_idx_map,
             joint_names=self.joint_names,
             debug=self.debug,
-            ee_idx=self._ee_idx,
+            ee_idxes=self._ee_idxes,
             mesh_link_names=self.mesh_link_names,
             cspace=self.cspace,
             base_link=self.base_link,
-            ee_link=self.ee_link,
+            ee_links=self.ee_links,
             lock_jointstate=self.lock_jointstate,
             mimic_joints=self._mimic_joint_data,
         )
@@ -423,14 +424,14 @@ class CudaRobotGenerator(CudaRobotGeneratorConfig):
     def _build_chain(
         self,
         base_link: str,
-        ee_link: str,
+        ee_links: List[str],
         other_links: List[str],
     ) -> List[str]:
         """Build kinematic tree of the robot.
 
         Args:
             base_link: Name of base link for the chain.
-            ee_link: Name of end-effector link for the chain.
+            ee_links: Name of end-effector links for the chains.
             other_links: List of other links to add to the chain.
 
         Returns:
@@ -441,35 +442,41 @@ class CudaRobotGenerator(CudaRobotGeneratorConfig):
         self._bodies = []
         self._name_to_idx_map = dict()
         self.base_link = base_link
-        self.ee_link = ee_link
         self.joint_names = []
         self._fixed_transform = []
-        chain_link_names = self._kinematics_parser.get_chain(base_link, ee_link)
-        self._add_body_to_tree(chain_link_names[0], base=True)
-        for i, l_name in enumerate(chain_link_names[1:]):
-            self._add_body_to_tree(l_name)
-        # check if all links are in the built tree:
+        all_chain_link_names = [base_link]
 
-        for i in other_links:
-            if i in self._name_to_idx_map:
-                continue
-            if i not in self.extra_links.keys():
-                chain_l_names = self._kinematics_parser.get_chain(base_link, i)
+        self._add_body_to_tree(base_link, base=True)
+        for ee in ee_links:
+            chain_link_names = self._kinematics_parser.get_chain(base_link, ee)
+            assert chain_link_names[0] == base_link
+            for l_name in chain_link_names[1:]:
+                if l_name not in self._name_to_idx_map:
+                    self._add_body_to_tree(l_name)
 
-                for k in chain_l_names:
-                    if k in chain_link_names:
-                        continue
-                    # if link name is not in chain, add to chain
-                    chain_link_names.append(k)
-                    # add to tree:
-                    self._add_body_to_tree(k, base=False)
-        for i in self.extra_links.keys():
-            if i not in chain_link_names:
-                self._add_body_to_tree(i, base=False)
-                chain_link_names.append(i)
+            # check if all links are in the built tree:
+            for i in other_links:
+                if i in self._name_to_idx_map:
+                    continue
+                if i not in self.extra_links.keys():
+                    chain_l_names = self._kinematics_parser.get_chain(base_link, i)
+
+                    for k in chain_l_names:
+                        if k in self._name_to_idx_map:
+                            continue
+                        # if link name is not in chain, add to chain
+                        chain_link_names.append(k)
+                        # add to tree:
+                        self._add_body_to_tree(k, base=False)
+            for i in self.extra_links.keys():
+                if i not in self._name_to_idx_map:
+                    self._add_body_to_tree(i, base=False)
+                    chain_link_names.append(i)
+
+            all_chain_link_names.extend(chain_link_names[1:])
 
         self.non_fixed_joint_names = self.joint_names.copy()
-        return chain_link_names
+        return all_chain_link_names
 
     def _get_mimic_joint_data(self) -> Dict[str, List[int]]:
         """Get joints that are mimicked from actuated joints joints.
@@ -522,6 +529,8 @@ class CudaRobotGenerator(CudaRobotGeneratorConfig):
         for i in range(1, len(self._bodies)):
             body = self._bodies[i]
             parent_name = body.parent_link_name
+            if parent_name is None or parent_name not in self._name_to_idx_map:
+                continue
             link_map[i] = self._name_to_idx_map[parent_name]
             joint_offset_map.append(body.joint_offset)
             joint_map_type[i] = body.joint_type.value
@@ -576,7 +585,7 @@ class CudaRobotGenerator(CudaRobotGeneratorConfig):
 
     @profiler.record_function("robot_generator/build_kinematics")
     def _build_kinematics(
-        self, base_link: str, ee_link: str, other_links: List[str], link_names: List[str]
+        self, base_link: str, ee_links: List[str], other_links: List[str], link_names: List[str]
     ):
         """Build kinematics tensors given base link, end-effector link and other links.
 
@@ -586,7 +595,7 @@ class CudaRobotGenerator(CudaRobotGeneratorConfig):
             other_links: List of other links to add to the kinematic tree.
             link_names: List of link names to store poses after kinematics computation.
         """
-        chain_link_names = self._build_chain(base_link, ee_link, other_links)
+        chain_link_names = self._build_chain(base_link, ee_links, other_links)
         self._build_kinematics_tensors(base_link, link_names, chain_link_names)
         if self.collision_spheres is not None and len(self.collision_link_names) > 0:
             self._build_collision_model(
@@ -597,7 +606,7 @@ class CudaRobotGenerator(CudaRobotGeneratorConfig):
     def _build_kinematics_with_lock_joints(
         self,
         base_link: str,
-        ee_link: str,
+        ee_links: List[str],
         other_links: List[str],
         link_names: List[str],
         lock_joints: Dict[str, float],
@@ -615,7 +624,7 @@ class CudaRobotGenerator(CudaRobotGeneratorConfig):
             link_names: List of link names to store poses after kinematics computation.
             lock_joints: Joints to lock in the kinematic tree with value to lock at.
         """
-        chain_link_names = self._build_chain(base_link, ee_link, other_links)
+        chain_link_names = self._build_chain(base_link, ee_links, other_links)
         # find links attached to lock joints:
         lock_joint_names = list(lock_joints.keys())
 
@@ -969,9 +978,10 @@ class CudaRobotGenerator(CudaRobotGeneratorConfig):
             link_name: Name of the link to add.
             base: Is this the base link of the kinematic tree?
         """
-        body_idx = len(self._bodies)
-
         rigid_body_params = self._kinematics_parser.get_link_parameters(link_name, base=base)
+        if rigid_body_params is None:
+            return
+        body_idx = len(self._bodies)
         self._bodies.append(rigid_body_params)
         if rigid_body_params.joint_type != JointType.FIXED:
             self._controlled_links.append(body_idx)

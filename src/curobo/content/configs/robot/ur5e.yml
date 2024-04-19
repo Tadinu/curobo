@@ -21,7 +21,7 @@ robot_cfg:
     asset_root_path: "robot/ur_description"
     
     base_link: "base_link"
-    ee_link: "tool0"
+    ee_links: ["tool0"]
     link_names: null
     lock_joints: null
     extra_links: null

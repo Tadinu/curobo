@@ -208,7 +208,8 @@ def main():
     retract_cfg = mpc.rollout_fn.dynamics_model.retract_config.clone().unsqueeze(0)
     joint_names = mpc.rollout_fn.joint_names
 
-    state = mpc.rollout_fn.compute_kinematics(
+    ee = robot_cfg.kinematics.kinematics_config.ee_links[0]
+    state = mpc.rollout_fn.compute_kinematics(ee,
         JointState.from_position(retract_cfg, joint_names=joint_names)
     )
     current_state = JointState.from_position(retract_cfg, joint_names=joint_names)
@@ -309,7 +310,7 @@ def main():
         current_state.copy_(cu_js)
 
         mpc_result = mpc.step(current_state, max_attempts=2)
-        # ik_result = ik_solver.solve_single(ik_goal, cu_js.position.view(1,-1), cu_js.position.view(1,1,-1))
+        # ik_result = ik_solver.solve_single(ee, ik_goal, cu_js.position.view(1,-1), cu_js.position.view(1,1,-1))
 
         succ = True  # ik_result.success.item()
         cmd_state_full = mpc_result.js_action

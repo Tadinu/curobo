@@ -15,7 +15,7 @@ from curobo.types.state import JointState
 
 
 def test_mimic_config():
-    cfg = CudaRobotModelConfig.from_robot_yaml_file("simple_mimic_robot.yml", "ee_link")
+    cfg = CudaRobotModelConfig.from_robot_yaml_file("simple_mimic_robot.yml", ["ee_link"])
 
     # print(cfg.kinematics_config.fixed_transforms)
     robot_model = CudaRobotModel(cfg)
@@ -28,7 +28,7 @@ def test_mimic_config():
 
 
 def test_robotiq_mimic_config():
-    cfg = CudaRobotModelConfig.from_robot_yaml_file("ur5e_robotiq_2f_140.yml", "grasp_frame")
+    cfg = CudaRobotModelConfig.from_robot_yaml_file("ur5e_robotiq_2f_140.yml", ["grasp_frame"])
 
     robot_model = CudaRobotModel(cfg)
     q = JointState.from_position(robot_model.retract_config, joint_names=robot_model.joint_names)

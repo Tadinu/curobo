@@ -302,7 +302,8 @@ if __name__ == "__main__":
     retract_cfg = mpc.rollout_fn.dynamics_model.retract_config.clone().unsqueeze(0)
     joint_names = mpc.rollout_fn.joint_names
 
-    state = mpc.rollout_fn.compute_kinematics(
+    ee = robot_cfg.kinematics.kinematics_config.ee_links[0]
+    state = mpc.rollout_fn.compute_kinematics(ee,
         JointState.from_position(retract_cfg, joint_names=joint_names)
     )
     current_state = JointState.from_position(retract_cfg, joint_names=joint_names)

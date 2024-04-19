@@ -127,7 +127,8 @@ def main():
         kin_model = CudaRobotModel(robot_cfg.kinematics)
         default_config = kin_model.cspace.retract_config
 
-        sph_list = kin_model.get_robot_as_spheres(default_config)
+        ee = robot_cfg.kinematics.kinematics_config.ee_links[0]
+        sph_list = kin_model.get_robot_as_spheres(default_config, ee)
         for si, s in enumerate(sph_list[0]):
             sp = sphere.VisualSphere(
                 prim_path="/curobo/robot_sphere_" + str(i) + "_" + str(si),

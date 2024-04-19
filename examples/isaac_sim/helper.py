@@ -10,19 +10,20 @@
 #
 
 # Standard Library
-from typing import Dict, List
+from typing import Dict, List, Union
 
 # Third Party
 import numpy as np
 from matplotlib import cm
-from omni.isaac.core import World
-from omni.isaac.core.objects import cuboid
-from omni.isaac.core.robots import Robot
+from isaacsim.core.api.world import World
+from isaacsim.core.api.objects import VisualCuboid
+from isaacsim.core.api.robots import Robot
 from pxr import UsdPhysics
 
 # CuRobo
 from curobo.util.logger import log_warn
 from curobo.util.usd_helper import set_prim_transform
+from curobo.types.robot import RobotConfig
 
 ISAAC_SIM_23 = False
 ISAAC_SIM_45 = False
@@ -51,7 +52,7 @@ except ImportError:
 from typing import Optional
 
 # Third Party
-from omni.isaac.core.utils.extensions import enable_extension
+from isaacsim.core.utils.extensions import enable_extension
 
 # CuRobo
 from curobo.util_file import get_assets_path, get_filename, get_path_of_dir, join_path
@@ -74,7 +75,7 @@ def add_extensions(simulation_app, headless_mode: Optional[str] = None):
 
 ############################################################
 def add_robot_to_scene(
-    robot_config: Dict,
+    robot_config: Union[dict, RobotConfig],
     my_world: World,
     load_from_usd: bool = False,
     subroot: str = "",
@@ -100,16 +101,15 @@ def add_robot_to_scene(
     import_config.density = 0.0
 
     asset_path = get_assets_path()
-    if (
-        "external_asset_path" in robot_config["kinematics"]
-        and robot_config["kinematics"]["external_asset_path"] is not None
-    ):
-        asset_path = robot_config["kinematics"]["external_asset_path"]
+    if isinstance(robot_config, dict):
+        robot_config = RobotConfig.from_dict(robot_config)
+    if robot_config.kinematics.generator_config.external_asset_path is not None:
+        asset_path = robot_config.kinematics.generator_config.external_asset_path
 
     # urdf_path:
     # meshes_path:
     # meshes path should be a subset of urdf_path
-    full_path = join_path(asset_path, robot_config["kinematics"]["urdf_path"])
+    full_path = join_path(asset_path, robot_config.kinematics.generator_config.urdf_path)
     # full path contains the path to urdf
     # Get meshes path
     robot_path = get_path_of_dir(full_path)
@@ -120,7 +120,7 @@ def add_robot_to_scene(
         import omni.usd
 
         # Retrieve the path of the URDF file from the extension
-        extension_path = get_extension_path_from_name("isaacsim.asset.importer.urdf")
+        #extension_path = get_extension_path_from_name("isaacsim.asset.importer.urdf")
         root_path = robot_path
         file_name = filename
 
@@ -157,7 +157,7 @@ def add_robot_to_scene(
             dest_path,
         )
 
-    base_link_name = robot_config["kinematics"]["base_link"]
+    base_link_name = robot_config.kinematics.generator_config.base_link
 
     robot_p = Robot(
         prim_path=robot_path + "/" + base_link_name,
@@ -169,6 +169,8 @@ def add_robot_to_scene(
     linkp = stage.GetPrimAtPath(robot_path)
     set_prim_transform(linkp, [position[0], position[1], position[2], 1, 0, 0, 0])
 
+
+    print(linkp)
     robot = my_world.scene.add(robot_p)
     if initialize_world:
         if ISAAC_SIM_45:
@@ -193,7 +195,7 @@ class VoxelManager:
         for i in range(num_voxels):
             target_material = OmniPBR("/World/looks/v_" + str(i), color=np.ravel(color))
 
-            cube = cuboid.VisualCuboid(
+            cube = VisualCuboid(
                 prefix_path + str(i),
                 position=np.array([0, 0, -10]),
                 orientation=np.array([1, 0, 0, 0]),
