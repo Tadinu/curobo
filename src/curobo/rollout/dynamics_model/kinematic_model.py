@@ -431,6 +431,7 @@ class KinematicModel(KinematicModelConfig):
 
     def forward(
         self,
+        ee: str,
         start_state: JointState,
         act_seq: torch.Tensor,
         start_state_idx: Optional[torch.Tensor] = None,
@@ -459,7 +460,7 @@ class KinematicModel(KinematicModelConfig):
                 link_pos_seq,
                 link_quat_seq,
                 link_spheres,
-            ) = self.robot_model.forward(state_seq.position.view(shape_tup))
+            ) = self.robot_model.forward(state_seq.position.view(shape_tup), ee)
         link_pos_seq = link_pos_seq.view(
             ((curr_batch_size, num_traj_points, link_pos_seq.shape[1], 3))
         )

@@ -140,10 +140,12 @@ def ik_no_particle_opt_config():
 def test_eval(config, expected):
     ik_solver = IKSolver(config)
     q_sample = ik_solver.sample_configs(1)
-    kin_state = ik_solver.fk(q_sample)
+    ee = ik_solver.robot_config.kinematics.kinematics_config.ee_links[0]
+    kin_state = ik_solver.fk(q_sample, ee)
     goal = Pose(kin_state.ee_position, kin_state.ee_quaternion)
-    result = ik_solver.solve_single(goal)
-    result = ik_solver.solve_single(goal)
+    ee = config.robot_config.kinematics.kinematics_config.ee_links[0]
+    result = ik_solver.solve_single(ee, goal)
+    result = ik_solver.solve_single(ee, goal)
 
     success = result.success
     if expected != -100:

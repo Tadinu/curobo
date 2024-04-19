@@ -21,7 +21,7 @@ robot_cfg:
     asset_root_path: "robot/ur_description"
     
     base_link: "base_link"
-    ee_link: "grasp_frame"
+    ee_links: ["grasp_frame"]
     link_names: null
     lock_joints: {'finger_joint': 0.3}
 

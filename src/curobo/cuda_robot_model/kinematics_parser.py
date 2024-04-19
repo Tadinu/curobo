@@ -78,7 +78,7 @@ class KinematicsParser:
         """
         chain_links = [ee_link]
         link = ee_link
-        while link != base_link:
+        while link != base_link and link in self._parent_map:
             link = self._parent_map[link]["parent"]
             # add link to chain:
             chain_links.append(link)

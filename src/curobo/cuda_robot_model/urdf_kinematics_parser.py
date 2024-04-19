@@ -96,7 +96,7 @@ class UrdfKinematicsParser(KinematicsParser):
             body_params["joint_id"] = 0
             body_params["joint_type"] = JointType.FIXED
 
-        else:
+        elif link_name in self._parent_map:
             parent_data = self._parent_map[link_name]
             body_params["parent_link_name"] = parent_data["parent"]
 
@@ -184,6 +184,8 @@ class UrdfKinematicsParser(KinematicsParser):
                     joint_axis = [abs(x) for x in joint_axis]
                 body_params["joint_type"] = joint_type
                 body_params["joint_offset"] = joint_offset
+        else:
+            return link_params
 
         body_params["fixed_transform"] = joint_transform
         body_params["joint_name"] = active_joint_name

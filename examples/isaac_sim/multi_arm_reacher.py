@@ -149,7 +149,8 @@ def main():
     )
     motion_gen = MotionGen(motion_gen_config)
     print("warming up...")
-    motion_gen.warmup(enable_graph=True, warmup_js_trajopt=False)
+    ee = motion_gen_config.robot_cfg.kinematics.kinematics_config.ee_links[0]
+    motion_gen.warmup(ee, enable_graph=True, warmup_js_trajopt=False)
 
     print("Curobo is Ready")
     add_extensions(simulation_app, args.headless_mode)
@@ -170,7 +171,7 @@ def main():
 
     # read number of targets in link names:
     link_names = motion_gen.kinematics.link_names
-    ee_link_name = motion_gen.kinematics.ee_link
+    ee_link_names = motion_gen.kinematics.ee_links
     # get link poses at retract configuration:
 
     kin_state = motion_gen.kinematics.get_state(motion_gen.get_retract_config().view(1, -1))
@@ -186,24 +187,25 @@ def main():
     )
 
     # create new targets for new links:
-    ee_idx = link_names.index(ee_link_name)
+    ee_idxes = [link_names.index(ee_link) for ee_link in ee_link_names]
     target_links = {}
     names = []
     for i in link_names:
-        if i != ee_link_name:
-            k_pose = np.ravel(link_retract_pose[i].to_list())
-            color = np.random.randn(3) * 0.2
-            color[0] += 0.5
-            color[1] = 0.5
-            color[2] = 0.0
-            target_links[i] = cuboid.VisualCuboid(
-                "/World/target_" + i,
-                position=np.array(k_pose[:3]),
-                orientation=np.array(k_pose[3:]),
-                color=color,
-                size=0.05,
-            )
-            names.append("/World/target_" + i)
+        for ee in ee_idxes:
+            if i != ee:
+                k_pose = np.ravel(link_retract_pose[i].to_list())
+                color = np.random.randn(3) * 0.2
+                color[0] += 0.5
+                color[1] = 0.5
+                color[2] = 0.0
+                target_links[i] = cuboid.VisualCuboid(
+                    "/World/target_" + i,
+                    position=np.array(k_pose[:3]),
+                    orientation=np.array(k_pose[3:]),
+                    color=color,
+                    size=0.05,
+                )
+                names.append("/World/target_" + i)
     i = 0
     while simulation_app.is_running():
         my_world.step(render=True)
@@ -265,7 +267,7 @@ def main():
         cu_js = cu_js.get_ordered_joint_state(motion_gen.kinematics.joint_names)
 
         if args.visualize_spheres and step_index % 2 == 0:
-            sph_list = motion_gen.kinematics.get_robot_as_spheres(cu_js.position)
+            sph_list = motion_gen.kinematics.get_robot_as_spheres(cu_js.position, ee)
 
             if spheres is None:
                 spheres = []
@@ -309,7 +311,7 @@ def main():
             result = motion_gen.plan_single(
                 cu_js.unsqueeze(0), ik_goal, plan_config.clone(), link_poses=link_poses
             )
-            # ik_result = ik_solver.solve_single(ik_goal, cu_js.position.view(1,-1), cu_js.position.view(1,1,-1))
+            # ik_result = ik_solver.solve_single(ee, ik_goal, cu_js.position.view(1,-1), cu_js.position.view(1,1,-1))
 
             succ = result.success.item()  # ik_result.success.item()
             if succ:

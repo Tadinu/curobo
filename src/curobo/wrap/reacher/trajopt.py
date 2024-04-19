@@ -743,6 +743,7 @@ class TrajOptSolver(TrajOptSolverConfig):
 
     def solve_any(
         self,
+        ee: str,
         solve_type: ReacherSolveType,
         goal: Goal,
         seed_traj: Optional[JointState] = None,
@@ -774,7 +775,7 @@ class TrajOptSolver(TrajOptSolverConfig):
             TrajOptResult: Result of the trajectory optimization.
         """
         if solve_type == ReacherSolveType.SINGLE:
-            return self.solve_single(
+            return self.solve_single(ee,
                 goal,
                 seed_traj,
                 use_nn_seed,
@@ -783,7 +784,7 @@ class TrajOptSolver(TrajOptSolverConfig):
                 newton_iters=newton_iters,
             )
         elif solve_type == ReacherSolveType.GOALSET:
-            return self.solve_goalset(
+            return self.solve_goalset(ee,
                 goal,
                 seed_traj,
                 use_nn_seed,
@@ -834,6 +835,7 @@ class TrajOptSolver(TrajOptSolverConfig):
 
     def _solve_from_solve_state(
         self,
+        ee: str,
         solve_state: ReacherSolveState,
         goal: Goal,
         seed_traj: Optional[JointState] = None,
@@ -887,9 +889,9 @@ class TrajOptSolver(TrajOptSolverConfig):
         if goal_buffer.goal_pose.position is not None:
             goal_buffer.goal_state = None
         self.solver.reset()
-        result = self.solver.solve(goal_buffer, seed_traj)
+        result = self.solver.solve(ee, goal_buffer, seed_traj)
         log_info("Ran TO")
-        traj_result = self._get_result(
+        traj_result = self._get_result(ee,
             result,
             return_all_solutions,
             goal_buffer,
@@ -906,6 +908,7 @@ class TrajOptSolver(TrajOptSolverConfig):
 
     def solve_single(
         self,
+        ee: str,
         goal: Goal,
         seed_traj: Optional[JointState] = None,
         use_nn_seed: bool = False,
@@ -947,7 +950,7 @@ class TrajOptSolver(TrajOptSolverConfig):
             n_goalset=1,
         )
 
-        return self._solve_from_solve_state(
+        return self._solve_from_solve_state(ee,
             solve_state,
             goal,
             seed_traj,
@@ -959,6 +962,7 @@ class TrajOptSolver(TrajOptSolverConfig):
 
     def solve_goalset(
         self,
+        ee: str,
         goal: Goal,
         seed_traj: Optional[JointState] = None,
         use_nn_seed: bool = False,
@@ -997,7 +1001,7 @@ class TrajOptSolver(TrajOptSolverConfig):
             n_envs=1,
             n_goalset=goal.n_goalset,
         )
-        return self._solve_from_solve_state(
+        return self._solve_from_solve_state(ee,
             solve_state,
             goal,
             seed_traj,
@@ -1009,6 +1013,7 @@ class TrajOptSolver(TrajOptSolverConfig):
 
     def solve_batch(
         self,
+        ee: str,
         goal: Goal,
         seed_traj: Optional[JointState] = None,
         use_nn_seed: bool = False,
@@ -1050,7 +1055,7 @@ class TrajOptSolver(TrajOptSolverConfig):
             n_envs=1,
             n_goalset=1,
         )
-        return self._solve_from_solve_state(
+        return self._solve_from_solve_state(ee,
             solve_state,
             goal,
             seed_traj,
@@ -1063,6 +1068,7 @@ class TrajOptSolver(TrajOptSolverConfig):
 
     def solve_batch_goalset(
         self,
+        ee: str,
         goal: Goal,
         seed_traj: Optional[JointState] = None,
         use_nn_seed: bool = False,
@@ -1104,7 +1110,7 @@ class TrajOptSolver(TrajOptSolverConfig):
             n_envs=1,
             n_goalset=goal.n_goalset,
         )
-        return self._solve_from_solve_state(
+        return self._solve_from_solve_state(ee,
             solve_state,
             goal,
             seed_traj,
@@ -1116,6 +1122,7 @@ class TrajOptSolver(TrajOptSolverConfig):
 
     def solve_batch_env(
         self,
+        ee: str,
         goal: Goal,
         seed_traj: Optional[JointState] = None,
         use_nn_seed: bool = False,
@@ -1157,7 +1164,7 @@ class TrajOptSolver(TrajOptSolverConfig):
             n_envs=goal.batch,
             n_goalset=1,
         )
-        return self._solve_from_solve_state(
+        return self._solve_from_solve_state(ee,
             solve_state,
             goal,
             seed_traj,
@@ -1170,6 +1177,7 @@ class TrajOptSolver(TrajOptSolverConfig):
 
     def solve_batch_env_goalset(
         self,
+        ee: str,
         goal: Goal,
         seed_traj: Optional[JointState] = None,
         use_nn_seed: bool = False,
@@ -1211,7 +1219,7 @@ class TrajOptSolver(TrajOptSolverConfig):
             n_envs=goal.batch,
             n_goalset=goal.n_goalset,
         )
-        return self._solve_from_solve_state(
+        return self._solve_from_solve_state(ee,
             solve_state,
             goal,
             seed_traj,
@@ -1223,6 +1231,7 @@ class TrajOptSolver(TrajOptSolverConfig):
 
     def solve(
         self,
+        ee: str,
         goal: Goal,
         seed_traj: Optional[JointState] = None,
         use_nn_seed: bool = False,
@@ -1235,7 +1244,7 @@ class TrajOptSolver(TrajOptSolverConfig):
             "TrajOptSolver.solve is deprecated, use TrajOptSolver.solve_single or others instead"
         )
         if goal.goal_pose.batch == 1 and goal.goal_pose.n_goalset == 1:
-            return self.solve_single(
+            return self.solve_single(ee,
                 goal,
                 seed_traj,
                 use_nn_seed,
@@ -1244,7 +1253,7 @@ class TrajOptSolver(TrajOptSolverConfig):
                 newton_iters=newton_iters,
             )
         if goal.goal_pose.batch == 1 and goal.goal_pose.n_goalset > 1:
-            return self.solve_goalset(
+            return self.solve_goalset(ee,
                 goal,
                 seed_traj,
                 use_nn_seed,
@@ -1267,6 +1276,7 @@ class TrajOptSolver(TrajOptSolverConfig):
     @profiler.record_function("trajopt/get_result")
     def _get_result(
         self,
+        ee: str,
         result: WrapResult,
         return_all_solutions: bool,
         goal: Goal,
@@ -1301,9 +1311,9 @@ class TrajOptSolver(TrajOptSolverConfig):
         if self.evaluate_interpolated_trajectory:
             with profiler.record_function("trajopt/evaluate_interpolated"):
                 if self.use_cuda_graph_metrics:
-                    metrics = self.interpolate_rollout.get_metrics_cuda_graph(interpolated_trajs)
+                    metrics = self.interpolate_rollout.get_metrics_cuda_graph(ee, interpolated_trajs)
                 else:
-                    metrics = self.interpolate_rollout.get_metrics(interpolated_trajs)
+                    metrics = self.interpolate_rollout.get_metrics(ee, interpolated_trajs)
                 result.metrics.feasible = metrics.feasible
                 result.metrics.position_error = metrics.position_error
                 result.metrics.rotation_error = metrics.rotation_error
@@ -1448,6 +1458,7 @@ class TrajOptSolver(TrajOptSolverConfig):
 
     def batch_solve(
         self,
+        ee: str,
         goal: Goal,
         seed_traj: Optional[JointState] = None,
         seed_success: Optional[torch.Tensor] = None,
@@ -1460,11 +1471,11 @@ class TrajOptSolver(TrajOptSolverConfig):
             "TrajOptSolver.batch_solve is deprecated, use TrajOptSolver.solve_batch or others instead"
         )
         if goal.n_goalset == 1:
-            return self.solve_batch(
+            return self.solve_batch(ee,
                 goal, seed_traj, use_nn_seed, return_all_solutions, num_seeds, seed_success
             )
         if goal.n_goalset > 1:
-            return self.solve_batch_goalset(
+            return self.solve_batch_goalset(ee,
                 goal, seed_traj, use_nn_seed, return_all_solutions, num_seeds, seed_success
             )
 

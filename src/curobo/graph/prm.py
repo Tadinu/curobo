@@ -29,11 +29,11 @@ class PRMStar(GraphPlanBase):
         super().__init__(config)
 
     @torch.no_grad()
-    def _find_paths(self, x_init_batch, x_goal_batch, all_paths=False):
+    def _find_paths(self, ee: str, x_init_batch, x_goal_batch, all_paths=False):
         if all_paths:
-            return self._find_all_path(x_init_batch, x_goal_batch)
+            return self._find_all_path(ee, x_init_batch, x_goal_batch)
         else:
-            return self._find_one_path(x_init_batch, x_goal_batch)
+            return self._find_one_path(ee, x_init_batch, x_goal_batch)
 
     @profiler.record_function("geometric_planner/prm/add_bias_graph")
     def _add_bias_graph(self, x_init_batch, x_goal_batch, node_set_batch, node_set):
@@ -97,7 +97,7 @@ class PRMStar(GraphPlanBase):
         )
 
     @torch.no_grad()
-    def _find_one_path(self, x_init_batch, x_goal_batch):
+    def _find_one_path(self, ee: str, x_init_batch, x_goal_batch):
         """Find path from a batch of initial and goal configs
 
         Args:
@@ -108,7 +108,7 @@ class PRMStar(GraphPlanBase):
         Returns:
             [type]: b, h, dof
         """
-        result = GraphResult(
+        result = GraphResult(ee=ee,
             start_q=x_init_batch,
             goal_q=x_goal_batch,
             success=[False for x in range(x_init_batch.shape[0])],
@@ -123,7 +123,7 @@ class PRMStar(GraphPlanBase):
         b, _, dof = node_set.shape
         node_set = node_set.view(b * 2, dof)
         # check if start and goal are in freespace:
-        mask = self.mask_samples(node_set)
+        mask = self.mask_samples(ee, node_set)
         if mask.all() != True:
             log_warn("Start or End state in collision", exc_info=False)
             node_set_batch = node_set.view(b, 2, node_set.shape[-1])
@@ -172,7 +172,7 @@ class PRMStar(GraphPlanBase):
 
             len_min = min([len(g) for g in g_path])
             if len_min > 2:
-                g_path, c_max_t = self.batch_shortcut_path(g_path, batch_start_, batch_goal_)
+                g_path, c_max_t = self.batch_shortcut_path(ee, g_path, batch_start_, batch_goal_)
                 len_min = min([len(g) for g in g_path])
             for i, idx in enumerate(idx_list):
                 s_path[idx] = g_path[i]
@@ -202,7 +202,7 @@ class PRMStar(GraphPlanBase):
                 no_path_label = [not x for x in exist_label]
             no_path_idx = np.where(no_path_label)[0].tolist()
             idx = random.choice(no_path_idx)
-            self.build_graph(
+            self.build_graph(ee,
                 x_start=x_init_batch[idx],
                 x_goal=x_goal_batch[idx],
                 bias_samples=True,
@@ -225,7 +225,7 @@ class PRMStar(GraphPlanBase):
                 )
                 len_min = min([len(g) for g in g_path])
                 if len_min > 2:
-                    g_path, c_max_ = self.batch_shortcut_path(g_path, batch_start_, batch_goal_)
+                    g_path, c_max_ = self.batch_shortcut_path(ee, g_path, batch_start_, batch_goal_)
                     len_min = min([len(g) for g in g_path])
                 for i, idx in enumerate(idx_list):
                     c_max[idx] = c_max_[i]
@@ -256,7 +256,7 @@ class PRMStar(GraphPlanBase):
                 batch_goal_idx = [batch_goal_idx[x] for x in idx_list]
                 path_list = self.batch_get_graph_shortest_path(batch_start_idx, batch_goal_idx)
 
-                path_list, c_list = self.batch_shortcut_path(
+                path_list, c_list = self.batch_shortcut_path(ee,
                     path_list, batch_start_idx, batch_goal_idx
                 )
                 # add this back
@@ -275,7 +275,7 @@ class PRMStar(GraphPlanBase):
             )
             len_max = max([len(g) for g in g_path])
             if len_max > 3:
-                g_path, c_max = self.batch_shortcut_path(g_path, batch_start_idx, batch_goal_idx)
+                g_path, c_max = self.batch_shortcut_path(ee, g_path, batch_start_idx, batch_goal_idx)
                 len_max = max([len(g) for g in g_path])
         paths = self.get_paths(g_path)
         result.plan = paths
@@ -291,7 +291,7 @@ class PRMStar(GraphPlanBase):
         return result
 
     @torch.no_grad()
-    def _find_all_path(self, x_init_batch, x_goal_batch):
+    def _find_all_path(self, ee: str, x_init_batch, x_goal_batch):
         """Find path from a batch of initial and goal configs
 
         Args:
@@ -358,7 +358,7 @@ class PRMStar(GraphPlanBase):
             )
             len_max = max([len(g) for g in g_path])
             if len_max > 2:
-                g_path, c_max = self.batch_shortcut_path(g_path, batch_start_idx, batch_goal_idx)
+                g_path, c_max = self.batch_shortcut_path(ee, g_path, batch_start_idx, batch_goal_idx)
                 len_max = max([len(g) for g in g_path])
                 exist_label = [len(g) <= 3 for g in g_path]
 
@@ -384,7 +384,7 @@ class PRMStar(GraphPlanBase):
             # choose x_init, x_goal from the ones that don't have a path:
             no_path_idx = np.where(no_path_label)[0].tolist()
             idx = random.choice(no_path_idx)
-            self.build_graph(
+            self.build_graph(ee,
                 x_start=x_init_batch[idx],
                 x_goal=x_goal_batch[idx],
                 bias_samples=True,
@@ -405,7 +405,7 @@ class PRMStar(GraphPlanBase):
                 )
                 len_max = max([len(g) for g in g_path])
                 if len_max > 2:
-                    g_path, c_max = self.batch_shortcut_path(
+                    g_path, c_max = self.batch_shortcut_path(ee,
                         g_path, batch_start_idx, batch_goal_idx
                     )
                     len_max = max([len(g) for g in g_path])
@@ -437,7 +437,7 @@ class PRMStar(GraphPlanBase):
                 batch_goal_idx = [batch_goal_idx[x] for x in idx_list]
                 path_list = self.batch_get_graph_shortest_path(batch_start_idx, batch_goal_idx)
 
-                path_list, c_list = self.batch_shortcut_path(
+                path_list, c_list = self.batch_shortcut_path(ee,
                     path_list, batch_start_idx, batch_goal_idx
                 )
                 # add this back
@@ -457,7 +457,7 @@ class PRMStar(GraphPlanBase):
             )
             len_max = max([len(g) for g in g_path])
             if len_max > 3:
-                g_path, c_max = self.batch_shortcut_path(g_path, batch_start_idx, batch_goal_idx)
+                g_path, c_max = self.batch_shortcut_path(ee, g_path, batch_start_idx, batch_goal_idx)
                 len_max = max([len(g) for g in g_path])
         paths = self.get_paths(g_path)
         result.plan = paths
@@ -469,6 +469,7 @@ class PRMStar(GraphPlanBase):
 
     def build_graph(
         self,
+        ee: str,
         x_start=None,
         x_goal=None,
         number_of_nodes=None,
@@ -491,7 +492,7 @@ class PRMStar(GraphPlanBase):
             bias_samples = False
         # sample some points for vertex
         if bias_samples:
-            v_set = self.get_biased_vertex_set(
+            v_set = self.get_biased_vertex_set(ee,
                 x_start=x_start,
                 x_goal=x_goal,
                 n=number_of_nodes,
@@ -513,14 +514,14 @@ class PRMStar(GraphPlanBase):
 
             self.i = self.i + number_of_nodes
         sample_nodes = v_set[:, : self.dof]
-        self.connect_nodes(sample_nodes, lazy=lazy, k_nn=k_nn)
+        self.connect_nodes(ee=ee, x_set=sample_nodes, lazy=lazy, k_nn=k_nn)
 
-    def warmup(self, x_start: Optional[torch.Tensor] = None, x_goal: Optional[torch.Tensor] = None):
+    def warmup(self, ee: str, x_start: Optional[torch.Tensor] = None, x_goal: Optional[torch.Tensor] = None):
         for _ in range(3):
-            self.build_graph(
+            self.build_graph(ee,
                 x_start=x_start.view(-1),
                 x_goal=x_goal.view(-1),
                 bias_samples=True,
                 k_nn=self.k_nn,
             )
-        super().warmup()
+        super().warmup(ee)

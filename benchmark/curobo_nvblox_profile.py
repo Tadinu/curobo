@@ -72,7 +72,8 @@ def load_curobo(n_cubes: int, enable_log: bool = False):
         store_trajopt_debug=enable_log,
     )
     mg = MotionGen(motion_gen_config)
-    mg.warmup(enable_graph=False)
+    ee = motion_gen_config.robot_cfg.kinematics.kinematics_config.ee_links[0]
+    mg.warmup(ee, enable_graph=False)
     # print("warmed up")
     # exit()
     return mg

@@ -42,7 +42,7 @@ parser.add_argument(
     default=False,
 )
 
-parser.add_argument("--robot", type=str, default="franka.yml", help="robot configuration to load")
+parser.add_argument("--robot", type=str, default="ur5e.yml", help="robot configuration to load")
 args = parser.parse_args()
 
 ###########################################################
@@ -231,7 +231,9 @@ def main():
     retract_cfg = mpc.rollout_fn.dynamics_model.retract_config.clone().unsqueeze(0)
     joint_names = mpc.rollout_fn.joint_names
 
-    state = mpc.rollout_fn.compute_kinematics(
+    ee_links = robot_cfg["kinematics"]["ee_links"]
+    ee = ee_links[0]
+    state = mpc.rollout_fn.compute_kinematics(ee,
         JointState.from_position(retract_cfg, joint_names=joint_names)
     )
     current_state = JointState.from_position(retract_cfg, joint_names=joint_names)
@@ -244,7 +246,7 @@ def main():
 
     goal_buffer = mpc.setup_solve_single(goal, 1)
     mpc.update_goal(goal_buffer)
-    mpc_result = mpc.step(current_state, max_attempts=2)
+    mpc_result = mpc.step(ee, current_state, max_attempts=2)
 
     usd_help.load_stage(my_world.stage)
     init_world = False
@@ -337,8 +339,8 @@ def main():
         common_js_names = []
         current_state.copy_(cu_js)
 
-        mpc_result = mpc.step(current_state, max_attempts=2)
-        # ik_result = ik_solver.solve_single(ik_goal, cu_js.position.view(1,-1), cu_js.position.view(1,1,-1))
+        mpc_result = mpc.step(ee, current_state, max_attempts=2)
+        # ik_result = ik_solver.solve_single(ee, ik_goal, cu_js.position.view(1,-1), cu_js.position.view(1,1,-1))
 
         succ = True  # ik_result.success.item()
         cmd_state_full = mpc_result.js_action

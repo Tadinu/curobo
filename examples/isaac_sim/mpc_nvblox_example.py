@@ -301,7 +301,7 @@ def main():
         current_state.copy_(cu_js)
 
         mpc_result = mpc.step(current_state, max_attempts=2)
-        # ik_result = ik_solver.solve_single(ik_goal, cu_js.position.view(1,-1), cu_js.position.view(1,1,-1))
+        # ik_result = ik_solver.solve_single(ee, ik_goal, cu_js.position.view(1,-1), cu_js.position.view(1,1,-1))
 
         succ = True  # ik_result.success.item()
         cmd_state_full = mpc_result.js_action

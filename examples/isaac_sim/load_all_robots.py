@@ -68,7 +68,8 @@ from curobo.util_file import get_motion_gen_robot_list, get_robot_configs_path, 
 
 
 def main():
-    list_of_robots = get_motion_gen_robot_list()  # [:2]
+    #list_of_robots = get_motion_gen_robot_list()  # [:2]
+    list_of_robots = ["pr2.yml"]
     usd_help = UsdHelper()
 
     # assuming obstacles are in objects_path:
@@ -115,7 +116,8 @@ def main():
         kin_model = CudaRobotModel(robot_cfg.kinematics)
         default_config = kin_model.cspace.retract_config
 
-        sph_list = kin_model.get_robot_as_spheres(default_config)
+        ee = robot_cfg.kinematics.kinematics_config.ee_links[0]
+        sph_list = kin_model.get_robot_as_spheres(default_config, ee)
         for si, s in enumerate(sph_list[0]):
             sp = sphere.VisualSphere(
                 prim_path="/curobo/robot_sphere_" + str(i) + "_" + str(si),

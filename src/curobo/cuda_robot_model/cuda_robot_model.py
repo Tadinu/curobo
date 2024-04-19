@@ -52,7 +52,7 @@ class CudaRobotModelConfig:
     def from_basic_urdf(
         urdf_path: str,
         base_link: str,
-        ee_link: str,
+        ee_links: List[str],
         tensor_args: TensorDeviceType = TensorDeviceType(),
     ) -> CudaRobotModelConfig:
         """Load a cuda robot model from only urdf. This does not support collision queries.
@@ -66,7 +66,7 @@ class CudaRobotModelConfig:
         Returns:
             CudaRobotModelConfig: cuda robot model configuration.
         """
-        config = CudaRobotGeneratorConfig(base_link, ee_link, tensor_args, urdf_path=urdf_path)
+        config = CudaRobotGeneratorConfig(base_link, ee_links, tensor_args, urdf_path=urdf_path)
         return CudaRobotModelConfig.from_config(config)
 
     @staticmethod
@@ -74,7 +74,7 @@ class CudaRobotModelConfig:
         usd_path: str,
         usd_robot_root: str,
         base_link: str,
-        ee_link: str,
+        ee_links: List[str],
         tensor_args: TensorDeviceType = TensorDeviceType(),
     ) -> CudaRobotModelConfig:
         """Load a cuda robot model from only urdf. This does not support collision queries.
@@ -82,7 +82,7 @@ class CudaRobotModelConfig:
         Args:
             urdf_path : Path of urdf file.
             base_link : Name of base link.
-            ee_link : Name of end-effector link.
+            ee_links : Names of end-effector links.
             tensor_args : Device to load robot model. Defaults to TensorDeviceType().
 
         Returns:
@@ -91,7 +91,7 @@ class CudaRobotModelConfig:
         config = CudaRobotGeneratorConfig(
             tensor_args,
             base_link,
-            ee_link,
+            ee_links,
             usd_path=usd_path,
             usd_robot_root=usd_robot_root,
             use_usd_kinematics=True,
@@ -106,7 +106,7 @@ class CudaRobotModelConfig:
     ):
         config_file = load_yaml(join_path(get_robot_path(), file_path))["robot_cfg"]["kinematics"]
         if ee_link is not None:
-            config_file["ee_link"] = ee_link
+            config_file["ee_links"] = [ee_link]
         return CudaRobotModelConfig.from_config(
             CudaRobotGeneratorConfig(**config_file, tensor_args=tensor_args)
         )
@@ -259,7 +259,7 @@ class CudaRobotModel(CudaRobotModelConfig):
                 )
 
     @profiler.record_function("cuda_robot_model/forward_kinematics")
-    def forward(self, q, link_name=None, calculate_jacobian=False):
+    def forward(self, q, ee: str, link_name=None, calculate_jacobian=False):
         # pos, rot = self.compute_forward_kinematics(q, qd, link_name)
         if len(q.shape) > 2:
             raise ValueError("q shape should be [batch_size, dof]")
@@ -273,7 +273,7 @@ class CudaRobotModel(CudaRobotModelConfig):
             ee_pos = link_pos_seq.squeeze(1)
             ee_quat = link_quat_seq.squeeze(1)
         else:
-            link_idx = self.kinematics_config.ee_idx
+            link_idx = self.kinematics_config.ee_links.index(ee)
             if link_name is not None:
                 link_idx = self.link_names.index(link_name)
             ee_pos = link_pos_seq.contiguous()[..., link_idx, :]
@@ -293,8 +293,8 @@ class CudaRobotModel(CudaRobotModelConfig):
             link_spheres_tensor,
         )
 
-    def get_state(self, q, link_name=None, calculate_jacobian=False) -> CudaRobotModelState:
-        out = self.forward(q, link_name, calculate_jacobian)
+    def get_state(self, q, ee: str, link_name=None, calculate_jacobian=False) -> CudaRobotModelState:
+        out = self.forward(q, ee, link_name, calculate_jacobian)
         state = CudaRobotModelState(
             out[0],
             out[1],
@@ -323,8 +323,8 @@ class CudaRobotModel(CudaRobotModelConfig):
 
         return m_list
 
-    def get_robot_as_spheres(self, q: torch.Tensor, filter_valid: bool = True):
-        state = self.get_state(q)
+    def get_robot_as_spheres(self, q: torch.Tensor, ee: str, filter_valid: bool = True):
+        state = self.get_state(q, ee)
 
         # state has sphere position and radius
 
@@ -463,8 +463,8 @@ class CudaRobotModel(CudaRobotModelConfig):
         return new_js
 
     @property
-    def ee_link(self):
-        return self.kinematics_config.ee_link
+    def ee_links(self):
+        return self.kinematics_config.ee_links
 
     @property
     def base_link(self):

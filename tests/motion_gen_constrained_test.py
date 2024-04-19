@@ -40,7 +40,8 @@ def motion_gen(request):
     )
     motion_gen_instance = MotionGen(motion_gen_config)
 
-    motion_gen_instance.warmup(
+    ee = motion_gen_config.robot_cfg.kinematics.kinematics_config.ee_links[0]
+    motion_gen_instance.warmup(ee,
         enable_graph=False, warmup_js_trajopt=False, n_goalset=request.param[1]
     )
     return motion_gen_instance

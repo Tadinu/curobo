@@ -46,6 +46,7 @@ from curobo.util_file import (
 
 @dataclass
 class GraphResult:
+    ee: str
     success: tensor.T_BValue_bool
     start_q: tensor.T_BDOF
     goal_q: tensor.T_BDOF
@@ -258,34 +259,34 @@ class GraphPlanBase(GraphConfig):
 
         self._rollout_list = None
 
-    def check_feasibility(self, x_set):
-        mask = self.mask_samples(x_set)
+    def check_feasibility(self, ee: str, x_set):
+        mask = self.mask_samples(ee, x_set)
         return mask.all(), mask
 
-    def get_feasible_sample_set(self, x_samples):
-        mask = self.mask_samples(x_samples)
+    def get_feasible_sample_set(self, ee: str, x_samples):
+        mask = self.mask_samples(ee, x_samples)
         x_samples = x_samples[mask]
         return x_samples
 
-    def mask_samples(self, x_samples):  # call feasibility here:
+    def mask_samples(self, ee: str, x_samples):  # call feasibility here:
         if self.use_cuda_graph_mask_samples and x_samples.shape[0] <= self.max_cg_buffer:
-            return self._mask_samples_cuda_graph(x_samples)
+            return self._mask_samples_cuda_graph(ee, x_samples)
         else:
-            return self._mask_samples(x_samples)
+            return self._mask_samples(ee, x_samples)
 
     @profiler.record_function("geometric_planner/cg_mask_samples")
-    def _mask_samples_cuda_graph(self, x_samples):
+    def _mask_samples_cuda_graph(self, ee: str, x_samples):
         d = []
         if self.max_cg_buffer < x_samples.shape[0]:
             for i in range(math.ceil(x_samples.shape[0] / self.max_cg_buffer)):
                 start = i * self.max_cg_buffer
                 end = (i + 1) * self.max_cg_buffer
-                feasible = self._cuda_graph_rollout_constraint(
+                feasible = self._cuda_graph_rollout_constraint(ee,
                     x_samples[start:end, :].unsqueeze(1), use_batch_env=False
                 )
                 d.append(feasible)
         else:
-            feasible = self._cuda_graph_rollout_constraint(
+            feasible = self._cuda_graph_rollout_constraint(ee,
                 x_samples.unsqueeze(1), use_batch_env=False
             )
             d.append(feasible)
@@ -293,28 +294,28 @@ class GraphPlanBase(GraphConfig):
         return mask
 
     @profiler.record_function("geometric_planner/mask_samples")
-    def _mask_samples(self, x_samples):
+    def _mask_samples(self, ee: str, x_samples):
         d = []
         if self.max_buffer < x_samples.shape[0]:
             # c_samples = x_samples[:, 0:1] * 0.0
             for i in range(math.ceil(x_samples.shape[0] / self.max_buffer)):
                 start = i * self.max_buffer
                 end = (i + 1) * self.max_buffer
-                metrics = self.safety_rollout_fn.rollout_constraint(
+                metrics = self.safety_rollout_fn.rollout_constraint(ee,
                     x_samples[start:end, :].unsqueeze(1), use_batch_env=False
                 )
                 d.append(metrics.feasible)
         else:
-            metrics = self.safety_rollout_fn.rollout_constraint(
+            metrics = self.safety_rollout_fn.rollout_constraint(ee,
                 x_samples.unsqueeze(1), use_batch_env=False
             )
             d.append(metrics.feasible)
         mask = torch.cat(d).squeeze()
         return mask
 
-    def _cuda_graph_rollout_constraint(self, x_samples, use_batch_env=False):
+    def _cuda_graph_rollout_constraint(self, ee: str, x_samples, use_batch_env=False):
         self._cu_act_buffer[: x_samples.shape[0]] = x_samples
-        metrics = self.rollout_fn.rollout_constraint_cuda_graph(
+        metrics = self.rollout_fn.rollout_constraint_cuda_graph(ee,
             self._cu_act_buffer, use_batch_env=False
         )
         return metrics.feasible[: x_samples.shape[0]]
@@ -352,7 +353,7 @@ class GraphPlanBase(GraphConfig):
         self._check_bias_node = self.use_bias_node
 
     @profiler.record_function("geometric_planner/sample_biased_nodes")
-    def get_biased_vertex_set(self, x_start, x_goal, c_max=10.0, c_min=1, n=None, lazy=False):
+    def get_biased_vertex_set(self, ee: str, x_start, x_goal, c_max=10.0, c_min=1, n=None, lazy=False):
         if n is None:
             n = self.vertex_n
         # get biased samples that are around x_start and x_goal
@@ -388,7 +389,7 @@ class GraphPlanBase(GraphConfig):
             x_samples = torch.clamp(x_samples, self.bounds[0, :], self.bounds[1, :])
 
         if not lazy:
-            x_search = self.get_feasible_sample_set(x_samples)
+            x_search = self.get_feasible_sample_set(ee, x_samples)
         else:
             x_search = x_samples
         xc_search = cat_xc_jit(x_search, n)
@@ -413,7 +414,7 @@ class GraphPlanBase(GraphConfig):
         return C
 
     @profiler.record_function("geometric_planner/sample_nodes")
-    def get_new_vertex_set(self, n=None, lazy=False):
+    def get_new_vertex_set(self, ee: str, n=None, lazy=False):
         if n is None:
             n = self.vertex_n
         # get a new seed value:
@@ -424,7 +425,7 @@ class GraphPlanBase(GraphConfig):
             bounded=True,
         )
         if not lazy:
-            x_search = self.get_feasible_sample_set(x_samples)
+            x_search = self.get_feasible_sample_set(ee, x_samples)
         else:
             x_search = x_samples
         xc_search = cat_xc_jit(x_search, n)
@@ -434,8 +435,8 @@ class GraphPlanBase(GraphConfig):
         return xc_search
 
     @torch.no_grad()
-    def validate_graph(self):
-        self._validate_graph()
+    def validate_graph(self, ee: str):
+        self._validate_graph(ee)
 
     def get_graph_edges(self):
         """Return edges in the graph with start node and end node locations
@@ -462,7 +463,7 @@ class GraphPlanBase(GraphConfig):
         nodes = self.path[: self.i, : self.dof]
         return Graph(nodes=nodes, edges=node_edges, connectivity=edge_connect)
 
-    def _validate_graph(self):
+    def _validate_graph(self, ee: str):
         self.graph.update_graph()
         edge_list = self.graph.get_edges()
         edges = torch.as_tensor(
@@ -577,7 +578,7 @@ class GraphPlanBase(GraphConfig):
         return path_list
 
     @torch.no_grad()
-    def batch_shortcut_path(self, g_path, start_idx, goal_idx):
+    def batch_shortcut_path(self, ee: str, g_path, start_idx, goal_idx):
         edge_set = []
         for k in range(len(g_path)):
             path = self.path[g_path[k]]
@@ -587,7 +588,7 @@ class GraphPlanBase(GraphConfig):
                         torch.cat((path[i : i + 1], path[j : j + 1]), dim=0).unsqueeze(0)
                     )
         edge_set = torch.cat(edge_set, dim=0)
-        self.connect_nodes(edge_set=edge_set)
+        self.connect_nodes(ee=ee, edge_set=edge_set)
         s_path, c_max = self.batch_get_graph_shortest_path(start_idx, goal_idx, return_length=True)
         return s_path, c_max
 
@@ -639,11 +640,11 @@ class GraphPlanBase(GraphConfig):
         return label, path_label
 
     @torch.no_grad()
-    def find_paths(self, x_init, x_goal, interpolation_steps: Optional[int] = None) -> GraphResult:
+    def find_paths(self, ee: str, x_init, x_goal, interpolation_steps: Optional[int] = None) -> GraphResult:
         start_time = time.time()
         path = None
         try:
-            path = self._find_paths(x_init, x_goal)
+            path = self._find_paths(ee, x_init, x_goal, x_init)
             path.success = torch.as_tensor(
                 path.success, device=self.tensor_args.device, dtype=torch.bool
             )
@@ -654,14 +655,14 @@ class GraphPlanBase(GraphConfig):
             self.reset_buffer()
             torch.cuda.empty_cache()
             success = torch.zeros(x_init.shape[0], device=self.tensor_args.device, dtype=torch.bool)
-            path = GraphResult(success, x_init, x_goal)
+            path = GraphResult(ee, success, x_init, x_goal)
             return path
         except RuntimeError as e:
             log_warn(e)
             self.reset_buffer()
             torch.cuda.empty_cache()
             success = torch.zeros(x_init.shape[0], device=self.tensor_args.device, dtype=torch.long)
-            path = GraphResult(success, x_init, x_goal)
+            path = GraphResult(ee, success, x_init, x_goal)
             return path
         if self.interpolation_type is not None and (torch.count_nonzero(path.success) > 0):
             (
@@ -674,14 +675,14 @@ class GraphPlanBase(GraphConfig):
             # )
             if self.compute_metrics:
                 # compute metrics on interpolated plan:
-                path.metrics = self.get_metrics(path.interpolated_plan)
+                path.metrics = self.get_metrics(ee, path.interpolated_plan)
 
                 path.success = torch.logical_and(path.success, torch.all(path.metrics.feasible, 1))
 
         return path
 
     @abstractmethod
-    def _find_paths(self, x_search, c_search, x_init) -> GraphResult:
+    def _find_paths(self, ee: str, x_search, c_search, x_init) -> GraphResult:
         raise NotImplementedError
 
     def compute_path_length(self, path):
@@ -743,6 +744,7 @@ class GraphPlanBase(GraphConfig):
     @profiler.record_function("geometric_planner/batch_steer_and_connect")
     def _batch_steer_and_connect(
         self,
+        ee: str,
         start_nodes,
         goal_nodes,
         add_steer_pts=-1,
@@ -756,7 +758,7 @@ class GraphPlanBase(GraphConfig):
             goal_nodes ([type]): [description]
         """
 
-        steer_nodes, _ = self._batch_steer(
+        steer_nodes, _ = self._batch_steer(ee,
             start_nodes,
             goal_nodes,
             add_steer_pts=add_steer_pts,
@@ -769,6 +771,7 @@ class GraphPlanBase(GraphConfig):
     @profiler.record_function("geometric_planner/batch_steer")
     def _batch_steer(
         self,
+        ee: str,
         start_nodes,
         desired_nodes,
         steer_radius=None,
@@ -802,7 +805,7 @@ class GraphPlanBase(GraphConfig):
         line_vec = line_vec.view(b * h, dof)
         # print("Collision checks: ", b)
         # check along line vec:
-        mask = self.mask_samples(line_vec)
+        mask = self.mask_samples(ee, line_vec)
 
         line_vec = line_vec.view(b, h, dof)
         # TODO: Make this cleaner..
@@ -899,6 +902,7 @@ class GraphPlanBase(GraphConfig):
     @profiler.record_function("geometric_planner/connect_nodes")
     def connect_nodes(
         self,
+        ee: str,
         x_set=None,
         connect_mode="knn",
         debug=False,
@@ -953,7 +957,7 @@ class GraphPlanBase(GraphConfig):
         elif edge_set is not None:
             goal_nodes = edge_set[:, 0]
             start_nodes = edge_set[:, 1, : self.dof]
-        self._batch_steer_and_connect(
+        self._batch_steer_and_connect(ee,
             goal_nodes, start_nodes, add_steer_pts=-1, lazy=lazy, add_exact_node=add_exact_node
         )
 
@@ -1006,9 +1010,9 @@ class GraphPlanBase(GraphConfig):
         return out_traj_state, last_tstep, opt_dt
 
     # validate plan
-    def get_metrics(self, state: State):
+    def get_metrics(self, ee: str, state: State):
         # compute metrics
-        metrics = self.safety_rollout_fn.get_metrics(state)
+        metrics = self.safety_rollout_fn.get_metrics(ee, state)
         return metrics
 
     def reset_seed(self):
@@ -1029,7 +1033,7 @@ class GraphPlanBase(GraphConfig):
             self._rollout_list = [self.safety_rollout_fn, self.rollout_fn]
         return self._rollout_list
 
-    def warmup(self, x_start: Optional[torch.Tensor] = None, x_goal: Optional[torch.Tensor] = None):
+    def warmup(self, ee: str, x_start: Optional[torch.Tensor] = None, x_goal: Optional[torch.Tensor] = None):
         pass
 
 

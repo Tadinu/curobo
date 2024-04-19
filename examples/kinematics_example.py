@@ -32,15 +32,15 @@ def demo_basic_robot():
         "urdf_path"
     ]  # Send global path starting with "/"
     base_link = config_file["robot_cfg"]["kinematics"]["base_link"]
-    ee_link = config_file["robot_cfg"]["kinematics"]["ee_link"]
-    robot_cfg = RobotConfig.from_basic(urdf_file, base_link, ee_link, tensor_args)
+    ee_links = config_file["robot_cfg"]["kinematics"]["ee_links"]
+    robot_cfg = RobotConfig.from_basic(urdf_file, base_link, ee_links, tensor_args)
 
     kin_model = CudaRobotModel(robot_cfg.kinematics)
 
     # compute forward kinematics:
 
     q = torch.rand((10, kin_model.get_dof()), **(tensor_args.as_torch_dict()))
-    out = kin_model.get_state(q)
+    out = kin_model.get_state(q, ee_links[0])
     # here is the kinematics state:
     # print(out)
 

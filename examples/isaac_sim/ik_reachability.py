@@ -196,17 +196,19 @@ def main():
         # use_fixed_samples=True,
     )
     ik_solver = IKSolver(ik_config)
+    ee = ik_solver.robot_config.kinematics.kinematics_config.ee_links[0]
 
     # get pose grid:
     position_grid_offset = tensor_args.to_device(get_pose_grid(10, 10, 5, 0.5, 0.5, 0.5))
 
     # read current ik pose and warmup?
-    fk_state = ik_solver.fk(ik_solver.get_retract_config().view(1, -1))
+    fk_state = ik_solver.fk(ik_solver.get_retract_config().view(1, -1), ee)
     goal_pose = fk_state.ee_pose
     goal_pose = goal_pose.repeat(position_grid_offset.shape[0])
     goal_pose.position += position_grid_offset
 
-    result = ik_solver.solve_batch(goal_pose)
+    ee = robot_cfg["kinematics"]["ee_links"][0]
+    result = ik_solver.solve_batch(ee, goal_pose)
 
     print("Curobo is Ready")
     add_extensions(simulation_app, args.headless_mode)
@@ -278,7 +280,7 @@ def main():
         cu_js = cu_js.get_ordered_joint_state(ik_solver.kinematics.joint_names)
 
         if args.visualize_spheres and step_index % 2 == 0:
-            sph_list = ik_solver.kinematics.get_robot_as_spheres(cu_js.position)
+            sph_list = ik_solver.kinematics.get_robot_as_spheres(cu_js.position, ee)
 
             if spheres is None:
                 spheres = []
@@ -313,7 +315,7 @@ def main():
             )
             goal_pose.position[:] = ik_goal.position[:] + position_grid_offset
             goal_pose.quaternion[:] = ik_goal.quaternion[:]
-            result = ik_solver.solve_batch(goal_pose)
+            result = ik_solver.solve_batch(ee, goal_pose)
 
             succ = torch.any(result.success)
             print(

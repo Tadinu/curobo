@@ -36,8 +36,8 @@ def demo_basic_ik():
         "urdf_path"
     ]  # Send global path starting with "/"
     base_link = config_file["robot_cfg"]["kinematics"]["base_link"]
-    ee_link = config_file["robot_cfg"]["kinematics"]["ee_link"]
-    robot_cfg = RobotConfig.from_basic(urdf_file, base_link, ee_link, tensor_args)
+    ee_links = config_file["robot_cfg"]["kinematics"]["ee_links"]
+    robot_cfg = RobotConfig.from_basic(urdf_file, base_link, ee_links, tensor_args)
 
     ik_config = IKSolverConfig.load_from_robot_config(
         robot_cfg,
@@ -53,13 +53,14 @@ def demo_basic_ik():
     ik_solver = IKSolver(ik_config)
 
     # print(kin_state)
+    ee = ee_links[0]
     for _ in range(10):
         q_sample = ik_solver.sample_configs(100)
-        kin_state = ik_solver.fk(q_sample)
+        kin_state = ik_solver.fk(q_sample, ee)
         goal = Pose(kin_state.ee_position, kin_state.ee_quaternion)
 
         st_time = time.time()
-        result = ik_solver.solve_batch(goal)
+        result = ik_solver.solve_batch(ee, goal)
         torch.cuda.synchronize()
         print(
             "Success, Solve Time(s), hz ",
@@ -95,14 +96,15 @@ def demo_full_config_collision_free_ik():
     ik_solver = IKSolver(ik_config)
 
     # print(kin_state)
+    ee = ik_solver.robot_config.kinematics.kinematics_config.ee_links[0]
     print("Running Single IK")
     for _ in range(10):
         q_sample = ik_solver.sample_configs(1)
-        kin_state = ik_solver.fk(q_sample)
+        kin_state = ik_solver.fk(q_sample, ee)
         goal = Pose(kin_state.ee_position, kin_state.ee_quaternion)
 
         st_time = time.time()
-        result = ik_solver.solve_batch(goal)
+        result = ik_solver.solve_batch(ee, goal)
         torch.cuda.synchronize()
         total_time = (time.time() - st_time) / q_sample.shape[0]
         print(
@@ -117,12 +119,13 @@ def demo_full_config_collision_free_ik():
     exit()
     print("Running Batch IK (10 goals)")
     q_sample = ik_solver.sample_configs(10)
-    kin_state = ik_solver.fk(q_sample)
+    kin_state = ik_solver.fk(q_sample, ee)
     goal = Pose(kin_state.ee_position, kin_state.ee_quaternion)
 
+    ee = robot_cfg.kinematics.kinematics_config.ee_links[0]
     for _ in range(3):
         st_time = time.time()
-        result = ik_solver.solve_batch(goal)
+        result = ik_solver.solve_batch(ee, goal)
         torch.cuda.synchronize()
         print(
             "Success, Solve Time(s), Total Time(s)",
@@ -133,12 +136,12 @@ def demo_full_config_collision_free_ik():
 
     print("Running Goalset IK (10 goals in 1 set)")
     q_sample = ik_solver.sample_configs(10)
-    kin_state = ik_solver.fk(q_sample)
+    kin_state = ik_solver.fk(q_sample, ee)
     goal = Pose(kin_state.ee_position.unsqueeze(0), kin_state.ee_quaternion.unsqueeze(0))
 
     for _ in range(3):
         st_time = time.time()
-        result = ik_solver.solve_goalset(goal)
+        result = ik_solver.solve_goalset(ee, goal)
         torch.cuda.synchronize()
         print(
             "Success, Solve Time(s), Total Time(s)",
@@ -149,7 +152,7 @@ def demo_full_config_collision_free_ik():
 
     print("Running Batch Goalset IK (10 goals in 10 sets)")
     q_sample = ik_solver.sample_configs(100)
-    kin_state = ik_solver.fk(q_sample)
+    kin_state = ik_solver.fk(q_sample, ee)
     goal = Pose(
         kin_state.ee_position.view(10, 10, 3).contiguous(),
         kin_state.ee_quaternion.view(10, 10, 4).contiguous(),
@@ -157,7 +160,7 @@ def demo_full_config_collision_free_ik():
 
     for _ in range(3):
         st_time = time.time()
-        result = ik_solver.solve_batch_goalset(goal)
+        result = ik_solver.solve_batch_goalset(ee, goal)
         torch.cuda.synchronize()
         print(
             "Success, Solve Time(s), Total Time(s)",
@@ -191,14 +194,15 @@ def demo_full_config_batch_env_collision_free_ik():
         # use_fixed_samples=True,
     )
     ik_solver = IKSolver(ik_config)
+    ee = ik_config.robot_config.kinematics.kinematics_config.ee_links[0]
     q_sample = ik_solver.sample_configs(len(world_file))
-    kin_state = ik_solver.fk(q_sample)
+    kin_state = ik_solver.fk(q_sample, ee)
     goal = Pose(kin_state.ee_position, kin_state.ee_quaternion)
 
     print("Running Batch Env IK")
     for _ in range(3):
         st_time = time.time()
-        result = ik_solver.solve_batch_env(goal)
+        result = ik_solver.solve_batch_env(ee, goal)
         print(result.success)
         torch.cuda.synchronize()
         print(
@@ -209,16 +213,17 @@ def demo_full_config_batch_env_collision_free_ik():
         )
 
     q_sample = ik_solver.sample_configs(10 * len(world_file))
-    kin_state = ik_solver.fk(q_sample)
+    kin_state = ik_solver.fk(q_sample, ee)
     goal = Pose(
         kin_state.ee_position.view(len(world_file), 10, 3),
         kin_state.ee_quaternion.view(len(world_file), 10, 4),
     )
+    ee = robot_cfg.kinematics.kinematics_config.ee_links[0]
 
     print("Running Batch Env Goalset IK")
     for _ in range(3):
         st_time = time.time()
-        result = ik_solver.solve_batch_env_goalset(goal)
+        result = ik_solver.solve_batch_env_goalset(ee, goal)
         torch.cuda.synchronize()
         print(
             "Success, Solve Time(s), Total Time(s)",

@@ -67,10 +67,10 @@ def motion_gen_batch_env():
         ("motion_gen", InterpolateType.LINEAR_CUDA),
     ],
 )
-def test_motion_gen_single(motion_gen_str, interpolation, request):
+def test_motion_gen_single(ee: str, motion_gen_str, interpolation, request):
     motion_gen = request.getfixturevalue(motion_gen_str)
     motion_gen.update_interpolation_type(interpolation)
-    motion_gen.warmup()
+    motion_gen.warmup(ee)
 
     retract_cfg = motion_gen.get_retract_config()
 

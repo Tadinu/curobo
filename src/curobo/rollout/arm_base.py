@@ -417,7 +417,7 @@ class ArmBase(RolloutBase, ArmBaseConfig):
         out_metrics.constraint = constraint
         return out_metrics
 
-    def get_metrics(self, state: Union[JointState, KinematicModelState]):
+    def get_metrics(self, ee: str, state: Union[JointState, KinematicModelState]):
         """Compute metrics given state
             #TODO: Currently does not compute velocity and acceleration costs.
         Args:
@@ -428,14 +428,14 @@ class ArmBase(RolloutBase, ArmBaseConfig):
 
         """
         if isinstance(state, JointState):
-            state = self._get_augmented_state(state)
+            state = self._get_augmented_state(ee, state)
         out_metrics = self.constraint_fn(state)
         out_metrics.state = state
         out_metrics = self.convergence_fn(state, out_metrics)
         out_metrics.cost = self.cost_fn(state)
         return out_metrics
 
-    def get_metrics_cuda_graph(self, state: JointState):
+    def get_metrics_cuda_graph(self, ee: str, state: JointState):
         """Use a CUDA Graph to compute metrics
 
         Args:
@@ -454,11 +454,11 @@ class ArmBase(RolloutBase, ArmBaseConfig):
             s.wait_stream(torch.cuda.current_stream(device=self.tensor_args.device))
             with torch.cuda.stream(s):
                 for _ in range(3):
-                    self._cu_out_metrics = self.get_metrics(self._cu_metrics_state_in)
+                    self._cu_out_metrics = self.get_metrics(ee, self._cu_metrics_state_in)
             torch.cuda.current_stream(device=self.tensor_args.device).wait_stream(s)
             self.cu_metrics_graph = torch.cuda.CUDAGraph()
             with torch.cuda.graph(self.cu_metrics_graph, stream=s):
-                self._cu_out_metrics = self.get_metrics(self._cu_metrics_state_in)
+                self._cu_out_metrics = self.get_metrics(ee, self._cu_metrics_state_in)
             self._metrics_cuda_graph_init = True
         if self._cu_metrics_state_in.position.shape != state.position.shape:
             log_error("cuda graph changed")
@@ -475,8 +475,8 @@ class ArmBase(RolloutBase, ArmBaseConfig):
             out_metrics = RolloutMetrics()
         return out_metrics
 
-    def _get_augmented_state(self, state: JointState) -> KinematicModelState:
-        aug_state = self.compute_kinematics(state)
+    def _get_augmented_state(self, ee: str, state: JointState) -> KinematicModelState:
+        aug_state = self.compute_kinematics(ee, state)
         if len(aug_state.state_seq.position.shape) == 2:
             aug_state.state_seq = aug_state.state_seq.unsqueeze(1)
             aug_state.ee_pos_seq = aug_state.ee_pos_seq.unsqueeze(1)
@@ -490,7 +490,7 @@ class ArmBase(RolloutBase, ArmBaseConfig):
             aug_state.link_quat_seq = aug_state.link_quat_seq.unsqueeze(1)
         return aug_state
 
-    def compute_kinematics(self, state: JointState) -> KinematicModelState:
+    def compute_kinematics(self, ee: str, state: JointState) -> KinematicModelState:
         # assume input is joint state?
         h = 0
         current_state = state  # .detach().clone()
@@ -510,7 +510,7 @@ class ArmBase(RolloutBase, ArmBaseConfig):
             link_pos_seq,
             link_rot_seq,
             link_spheres,
-        ) = self.dynamics_model.robot_model.forward(q)
+        ) = self.dynamics_model.robot_model.forward(q, ee)
 
         if h != 0:
             ee_pos_seq = ee_pos_seq.view(b, h, 3)
@@ -537,13 +537,13 @@ class ArmBase(RolloutBase, ArmBaseConfig):
         return state
 
     def rollout_constraint(
-        self, act_seq: torch.Tensor, use_batch_env: bool = True
+        self, ee: str, act_seq: torch.Tensor, use_batch_env: bool = True
     ) -> RolloutMetrics:
-        state = self.dynamics_model.forward(self.start_state, act_seq)
+        state = self.dynamics_model.forward(ee, self.start_state, act_seq)
         metrics = self.constraint_fn(state, use_batch_env=use_batch_env)
         return metrics
 
-    def rollout_constraint_cuda_graph(self, act_seq: torch.Tensor, use_batch_env: bool = True):
+    def rollout_constraint_cuda_graph(self, ee: str, act_seq: torch.Tensor, use_batch_env: bool = True):
         # TODO: move this to RolloutBase
         if not self._rollout_constraint_cuda_graph_init:
             # create new cuda graph for metrics:
@@ -552,14 +552,14 @@ class ArmBase(RolloutBase, ArmBaseConfig):
             s.wait_stream(torch.cuda.current_stream(device=self.tensor_args.device))
             with torch.cuda.stream(s):
                 for _ in range(3):
-                    state = self.dynamics_model.forward(self.start_state, act_seq)
+                    state = self.dynamics_model.forward(ee, self.start_state, act_seq)
                     self._cu_rollout_constraint_out_metrics = self.constraint_fn(
                         state, use_batch_env=use_batch_env
                     )
             torch.cuda.current_stream(device=self.tensor_args.device).wait_stream(s)
             self.cu_rollout_constraint_graph = torch.cuda.CUDAGraph()
             with torch.cuda.graph(self.cu_rollout_constraint_graph, stream=s):
-                state = self.dynamics_model.forward(self.start_state, act_seq)
+                state = self.dynamics_model.forward(ee, self.start_state, act_seq)
                 self._cu_rollout_constraint_out_metrics = self.constraint_fn(
                     state, use_batch_env=use_batch_env
                 )
@@ -569,7 +569,7 @@ class ArmBase(RolloutBase, ArmBaseConfig):
         out_metrics = self._cu_rollout_constraint_out_metrics
         return out_metrics.clone()
 
-    def rollout_fn(self, act_seq) -> Trajectory:
+    def rollout_fn(self, ee:str, act_seq) -> Trajectory:
         """
         Return sequence of costs and states encountered
         by simulating a batch of action sequences
@@ -582,7 +582,7 @@ class ArmBase(RolloutBase, ArmBaseConfig):
         if self.start_state is None:
             raise ValueError("start_state is not set in rollout")
         with profiler.record_function("robot_model/rollout"):
-            state = self.dynamics_model.forward(
+            state = self.dynamics_model.forward(ee,
                 self.start_state, act_seq, self._goal_buffer.batch_current_state_idx
             )
         with profiler.record_function("cost/all"):
@@ -612,18 +612,18 @@ class ArmBase(RolloutBase, ArmBaseConfig):
             self.batch_size = goal.batch
         return True
 
-    def get_ee_pose(self, current_state):
+    def get_ee_pose(self, ee: str, current_state):
         current_state = current_state.to(**self.tensor_args)
 
         (ee_pos_batch, ee_quat_batch) = self.dynamics_model.robot_model.forward(
-            current_state[:, : self.dynamics_model.n_dofs]
+            current_state[:, : self.dynamics_model.n_dofs], ee
         )[0:2]
 
         state = KinematicModelState(current_state, ee_pos_batch, ee_quat_batch)
         return state
 
-    def current_cost(self, current_state: JointState, no_coll=False, return_state=True, **kwargs):
-        state = self._get_augmented_state(current_state)
+    def current_cost(self, ee: str, current_state: JointState, no_coll=False, return_state=True, **kwargs):
+        state = self._get_augmented_state(ee, current_state)
 
         if "horizon_cost" not in kwargs:
             kwargs["horizon_cost"] = False

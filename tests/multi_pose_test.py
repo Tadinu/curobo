@@ -50,12 +50,13 @@ def test_multi_pose_franka(b_size: int):
         regularization=False,
     )
     ik_solver = IKSolver(ik_config)
+    ee = ik_solver.robot_config.kinematics.kinematics_config.ee_links[0]
 
     q_sample = ik_solver.sample_configs(b_size)
-    kin_state = ik_solver.fk(q_sample)
+    kin_state = ik_solver.fk(q_sample, ee)
     link_poses = kin_state.link_pose
     goal = Pose(kin_state.ee_position, kin_state.ee_quaternion)
-    result = ik_solver.solve_batch(goal, link_poses=link_poses)
+    result = ik_solver.solve_batch(ee, goal, link_poses=link_poses)
 
     success = result.success
     assert (
@@ -88,12 +89,13 @@ def test_multi_pose_hand(b_size: int):
         regularization=False,
     )
     ik_solver = IKSolver(ik_config)
+    ee = ik_solver.robot_config.kinematics.kinematics_config.ee_links[0]
 
     q_sample = ik_solver.sample_configs(b_size)
-    kin_state = ik_solver.fk(q_sample)
+    kin_state = ik_solver.fk(q_sample, ee)
     link_poses = kin_state.link_pose
     goal = Pose(kin_state.ee_position, kin_state.ee_quaternion).clone()
-    result = ik_solver.solve_batch(goal, link_poses=link_poses)
+    result = ik_solver.solve_batch(ee, goal, link_poses=link_poses)
 
     success = result.success
     assert (

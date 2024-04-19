@@ -856,9 +856,10 @@ class UsdHelper:
         usd_helper.create_animation(
             robot_mesh_model, animation_poses, base_frame, robot_frame=robot_base_frame
         )
+        ee = kin_model.kinematics_config.ee_links[0]
         if visualize_robot_spheres:
             # visualize robot spheres:
-            sphere_traj = kin_model.get_robot_as_spheres(q_traj.position)
+            sphere_traj = kin_model.get_robot_as_spheres(q_traj.position, ee)
             # change color:
             for s in sphere_traj:
                 for k in s:
@@ -985,9 +986,10 @@ class UsdHelper:
             robot_base_frame=robot_base_frame,
             robot_asset_prim_path=robot_asset_prim_path,
         )
+        ee = kin_model.kinematics_config.ee_links[0]
         if visualize_robot_spheres:
             # visualize robot spheres:
-            sphere_traj = kin_model.get_robot_as_spheres(q_traj.position)
+            sphere_traj = kin_model.get_robot_as_spheres(q_traj.position, ee)
             # change color:
             for s in sphere_traj:
                 for k in s:

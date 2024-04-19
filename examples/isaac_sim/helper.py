@@ -121,8 +121,10 @@ def add_robot_to_scene(
 
         my_world._physics_context.set_solver_type("PGS")
 
+
     if ISAAC_SIM_23:  # fix to load robot correctly in isaac sim 2023.1.1
         linkp = stage.GetPrimAtPath(robot_path + "/" + base_link_name)
+        print(linkp)
         mass = UsdPhysics.MassAPI(linkp)
         mass.GetMassAttr().Set(0)
     robot = my_world.scene.add(robot_p)

@@ -110,8 +110,9 @@ def load_curobo(
         maximum_trajectory_dt=0.1,
     )
     mg = MotionGen(motion_gen_config)
-    mg.warmup(enable_graph=True, warmup_js_trajopt=False)
-    robot_cfg["kinematics"]["ee_link"] = "panda_hand"
+    ee = motion_gen_config.robot_cfg.kinematics.kinematics_config.ee_links[0]
+    mg.warmup(ee, enable_graph=True, warmup_js_trajopt=False)
+    robot_cfg["kinematics"]["ee_links"] = ["panda_hand"]
     return mg, robot_cfg
 
 

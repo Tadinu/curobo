@@ -124,8 +124,8 @@ class CuroboController(BaseController):
         ] = "panda_link0"  # controls which frame the controller is controlling
 
         self.robot_cfg["kinematics"][
-            "ee_link"
-        ] = "panda_hand"  # controls which frame the controller is controlling
+            "ee_links"
+        ][0] = "panda_hand"  # controls which frame the controller is controlling
         # self.robot_cfg["kinematics"]["cspace"]["max_acceleration"] = 10.0 # controls how fast robot moves
         self.robot_cfg["kinematics"]["extra_collision_spheres"] = {"attached_object": 100}
         # @self.robot_cfg["kinematics"]["collision_sphere_buffer"] = 0.0
@@ -158,7 +158,8 @@ class CuroboController(BaseController):
         )
         self.motion_gen = MotionGen(motion_gen_config)
         print("warming up...")
-        self.motion_gen.warmup(parallel_finetune=True)
+        ee = motion_gen_config.robot_cfg.kinematics.kinematics_config.ee_links[0]
+        self.motion_gen.warmup(ee, parallel_finetune=True)
         pose_metric = None
         if constrain_grasp_approach:
             pose_metric = PoseCostMetric.create_grasp_approach_metric(
@@ -182,6 +183,7 @@ class CuroboController(BaseController):
 
     def attach_obj(
         self,
+        ee: str,
         sim_js: JointState,
         js_names: list,
     ) -> None:
@@ -195,7 +197,7 @@ class CuroboController(BaseController):
             joint_names=js_names,
         )
 
-        self.motion_gen.attach_objects_to_robot(
+        self.motion_gen.attach_objects_to_robot(ee,
             cu_js,
             [cube_name],
             sphere_fit_type=SphereFitType.VOXEL_VOLUME_SAMPLE_SURFACE,
@@ -207,6 +209,7 @@ class CuroboController(BaseController):
 
     def plan(
         self,
+        ee: str,
         ee_translation_goal: np.array,
         ee_orientation_goal: np.array,
         sim_js: JointState,
@@ -224,7 +227,7 @@ class CuroboController(BaseController):
             joint_names=js_names,
         )
         cu_js = cu_js.get_ordered_joint_state(self.motion_gen.kinematics.joint_names)
-        result = self.motion_gen.plan_single(cu_js.unsqueeze(0), ik_goal, self.plan_config.clone())
+        result = self.motion_gen.plan_single(ee, cu_js.unsqueeze(0), ik_goal, self.plan_config.clone())
         if self._save_log:  # and not result.success.item(): # logging for debugging
             UsdHelper.write_motion_gen_log(
                 result,
@@ -244,6 +247,7 @@ class CuroboController(BaseController):
 
     def forward(
         self,
+        ee: str,
         sim_js: JointState,
         js_names: list,
     ) -> ArticulationAction:
@@ -257,7 +261,7 @@ class CuroboController(BaseController):
             ee_translation_goal = self.my_task.target_position
             ee_orientation_goal = np.array([0, 0, -1, 0])
             # compute curobo solution:
-            result = self.plan(ee_translation_goal, ee_orientation_goal, sim_js, js_names)
+            result = self.plan(ee, ee_translation_goal, ee_orientation_goal, sim_js, js_names)
             succ = result.success.item()
             if succ:
                 cmd_plan = result.get_interpolated_plan()
@@ -483,6 +487,7 @@ i = 0
 
 add_extensions(simulation_app, args.headless_mode)
 
+ee = "panda_hand"
 while simulation_app.is_running():
     my_world.step(render=True)  # necessary to visualize changes
     i += 1
@@ -521,12 +526,12 @@ while simulation_app.is_running():
                 my_world.step(render=True)
             sim_js = my_franka.get_joints_state()
             my_controller.update(ignore_substring, robot_prim_path)
-            my_controller.attach_obj(sim_js, my_franka.dof_names)
+            my_controller.attach_obj(ee, sim_js, my_franka.dof_names)
             my_task.get_place_position(observations)
 
     else:  # target position has been set
         sim_js = my_franka.get_joints_state()
-        art_action = my_controller.forward(sim_js, my_franka.dof_names)
+        art_action = my_controller.forward(ee, sim_js, my_franka.dof_names)
         if art_action is not None:
             articulation_controller.apply_action(art_action)
             # for _ in range(2):

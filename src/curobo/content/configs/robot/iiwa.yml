@@ -20,7 +20,7 @@ robot_cfg:
       - iiwa7_link_6
     collision_sphere_buffer: 0.005
     collision_spheres: spheres/iiwa_allegro.yml
-    ee_link: iiwa7_link_ee
+    ee_links: ["iiwa7_link_ee"]
     self_collision_buffer:
       iiwa7_link_1: -0.02
       iiwa7_link_2: 0.0

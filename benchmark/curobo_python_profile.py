@@ -59,7 +59,8 @@ def demo_motion_gen(robot_file, motion_gen=None):
         print("LOAD TIME: ", time.time() - st_time)
         st_time = time.time()
 
-        motion_gen.warmup(enable_graph=True, warmup_js_trajopt=False)
+        ee = motion_gen_config.robot_cfg.kinematics.kinematics_config.ee_links[0]
+        motion_gen.warmup(ee, enable_graph=True, warmup_js_trajopt=False)
 
         torch.cuda.synchronize()
 
@@ -70,7 +71,8 @@ def demo_motion_gen(robot_file, motion_gen=None):
     # print(time.time() - st_time)
     # return
     retract_cfg = motion_gen.get_retract_config()
-    state = motion_gen.rollout_fn.compute_kinematics(
+    ee = motion_gen.robot_cfg.kinematics.ee_links[0]
+    state = motion_gen.rollout_fn.compute_kinematics(ee,
         JointState.from_position(retract_cfg.view(1, -1))
     )
 
@@ -97,8 +99,9 @@ def demo_basic_ik(config_file="ur10e.yml"):
     config_file = load_yaml(join_path(get_robot_configs_path(), config_file))
     urdf_file = config_file["kinematics"]["urdf_path"]  # Send global path starting with "/"
     base_link = config_file["kinematics"]["base_link"]
-    ee_link = config_file["kinematics"]["ee_link"]
-    robot_cfg = RobotConfig.from_basic(urdf_file, base_link, ee_link, tensor_args)
+    ee_links = config_file["kinematics"]["ee_links"]
+    ee = ee_links[0]
+    robot_cfg = RobotConfig.from_basic(urdf_file, base_link, ee_links, tensor_args)
 
     ik_config = IKSolverConfig.load_from_robot_config(
         robot_cfg,
@@ -118,14 +121,14 @@ def demo_basic_ik(config_file="ur10e.yml"):
     # print(kin_state)
 
     q_sample = ik_solver.sample_configs(100)
-    kin_state = ik_solver.fk(q_sample)
+    kin_state = ik_solver.fk(q_sample, ee)
     goal = Pose(kin_state.ee_position, kin_state.ee_quaternion)
 
     torch.cuda.synchronize()
     print("FK time:", time.time() - st_time)
 
     st_time = time.time()
-    result = ik_solver.solve_batch(goal)
+    result = ik_solver.solve_batch(ee, goal)
     torch.cuda.synchronize()
     print(
         "Cold Start Solve Time(s) ",
@@ -143,8 +146,8 @@ def demo_basic_robot():
         "urdf_path"
     ]  # Send global path starting with "/"
     base_link = config_file["robot_cfg"]["kinematics"]["base_link"]
-    ee_link = config_file["robot_cfg"]["kinematics"]["ee_link"]
-    robot_cfg = RobotConfig.from_basic(urdf_file, base_link, ee_link, tensor_args)
+    ee_links = config_file["robot_cfg"]["kinematics"]["ee_links"]
+    robot_cfg = RobotConfig.from_basic(urdf_file, base_link, ee_links, tensor_args)
 
     kin_model = CudaRobotModel(robot_cfg.kinematics)
     print("base kin time:", time.time() - st_time)

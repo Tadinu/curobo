@@ -127,6 +127,7 @@ def test_eval(config, expected):
     goal_state = JointState.from_position(q_goal)
     current_state = JointState.from_position(q_start)
     js_goal = Goal(goal_pose=goal_pose, goal_state=goal_state, current_state=current_state)
-    result = trajopt_solver.solve_single(js_goal)
+    ee = config.robot_config.kinematics.kinematics_config.ee_links[0]
+    result = trajopt_solver.solve_single(ee, js_goal)
 
     assert result.success.item() == expected

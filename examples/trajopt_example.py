@@ -103,7 +103,8 @@ def demo_trajopt_collision_free():
     # exit()
     print("Running Goal Pose trajopt")
     js_goal = Goal(goal_pose=goal_pose, current_state=current_state)
-    result = trajopt_solver.solve_single(js_goal)
+    ee = robot_cfg.kinematics.kinematics_config.ee_links[0]
+    result = trajopt_solver.solve_single(ee, js_goal)
     print(result.success)
     if PLOT:
         plot_js(result.solution)
@@ -112,7 +113,7 @@ def demo_trajopt_collision_free():
     print("Running Goal Pose Set trajopt")
     # g_set = Pose(kin_state.ee_position, kin_state.ee_quaternion.repeat(2,1).view())
     # js_goal = Goal(goal_pose=goal_pose, current_state=current_state)
-    # result = trajopt_solver.solve_single(js_goal)
+    # result = trajopt_solver.solve_single(ee, js_goal)
 
 
 if __name__ == "__main__":

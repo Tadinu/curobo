@@ -122,8 +122,9 @@ def mask_image(robot_file="ur5e.yml"):
 
         # save robot spheres in current joint configuration
         robot_kinematics = curobo_segmenter._robot_world.kinematics
+        ee = robot_kinematics.kinematics_config.ee_links[0]
         if write_pointcloud:
-            sph = robot_kinematics.get_robot_as_spheres(q_js.position)
+            sph = robot_kinematics.get_robot_as_spheres(q_js.position, ee)
             WorldConfig(sphere=sph[0]).save_world_as_mesh("robot_spheres.stl")
 
             # save world pointcloud in robot origin

@@ -69,7 +69,7 @@ def load_curobo(
         collision_checker_type=c_checker,
         use_cuda_graph=cuda_graph,
         collision_cache=c_cache,
-        ee_link_name="panda_hand",
+        ee_link_names=["panda_hand"],
         position_threshold=0.005,
         rotation_threshold=0.05,
         num_ik_seeds=30,
@@ -81,7 +81,8 @@ def load_curobo(
         store_trajopt_debug=enable_log,
     )
     mg = MotionGen(motion_gen_config)
-    mg.warmup(enable_graph=False, warmup_js_trajopt=False)
+    ee = motion_gen_config.robot_cfg.kinematics.kinematics_config.ee_links[0]
+    mg.warmup(ee, enable_graph=False, warmup_js_trajopt=False)
     return mg
 
 

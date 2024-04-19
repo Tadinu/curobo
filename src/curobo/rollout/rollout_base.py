@@ -456,26 +456,26 @@ class RolloutBase:
     ) -> RolloutMetrics:
         return
 
-    def get_metrics(self, state: State):
+    def get_metrics(self, ee: str, state: State):
         out_metrics = self.constraint_fn(state)
         out_metrics = self.convergence_fn(state, out_metrics)
         return out_metrics
 
-    def get_metrics_cuda_graph(self, state: State):
-        return self.get_metrics(state)
+    def get_metrics_cuda_graph(self, ee: str, state: State):
+        return self.get_metrics(ee, state)
 
-    def rollout_fn(self, act):
+    def rollout_fn(self, ee: str, act):
         pass
 
-    def current_cost(self, current_state):
+    def current_cost(self, ee: str, current_state):
         pass
 
     @abstractmethod
     def update_params(self, goal: Goal):
         return
 
-    def __call__(self, act: T_BHDOF_float) -> Trajectory:
-        return self.rollout_fn(act)
+    def __call__(self, ee: str, act: T_BHDOF_float) -> Trajectory:
+        return self.rollout_fn(ee, act)
 
     @abstractproperty
     def action_bounds(self):
@@ -545,7 +545,7 @@ class RolloutBase:
     # how to map act_seq to state?
     # rollout for feasibility?
     @abstractmethod
-    def rollout_constraint(self, act_seq: torch.Tensor) -> RolloutMetrics:
+    def rollout_constraint(self, ee: str, act_seq: torch.Tensor) -> RolloutMetrics:
         # get state by rolling out
 
         # get feasibility:

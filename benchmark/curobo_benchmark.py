@@ -150,7 +150,7 @@ def load_curobo(
     robot_cfg["kinematics"]["collision_sphere_buffer"] = collision_buffer
     robot_cfg["kinematics"]["collision_spheres"] = "spheres/franka_mesh.yml"
     robot_cfg["kinematics"]["collision_link_names"].remove("attached_object")
-    robot_cfg["kinematics"]["ee_link"] = "panda_hand"
+    robot_cfg["kinematics"]["ee_links"] = ["panda_hand"]
 
     if ik_seeds is None:
         ik_seeds = 32
@@ -212,7 +212,8 @@ def load_curobo(
         high_precision=args.high_precision,
     )
     mg = MotionGen(motion_gen_config)
-    mg.warmup(enable_graph=True, warmup_js_trajopt=False, parallel_finetune=parallel_finetune)
+    ee = motion_gen_config.robot_cfg.kinematics.kinematics_config.ee_links[0]
+    mg.warmup(ee, enable_graph=True, warmup_js_trajopt=False, parallel_finetune=parallel_finetune)
 
     return mg, robot_cfg
 

@@ -60,7 +60,8 @@ def get_trajectory(robot_file="franka.yml", dt=1.0 / 60.0):
         interpolation_dt=dt,
     )
     motion_gen = MotionGen(motion_gen_config)
-    motion_gen.warmup()
+    ee = motion_gen_config.robot_cfg.kinematics.kinematics_config.ee_links[0]
+    motion_gen.warmup(ee)
     robot_cfg = load_yaml(join_path(get_robot_configs_path(), robot_file))["robot_cfg"]
     robot_cfg = RobotConfig.from_dict(robot_cfg, tensor_args)
     retract_cfg = motion_gen.get_retract_config()

@@ -79,7 +79,8 @@ def test_trajopt_single_js(trajopt_solver):
     current_state = JointState.from_position(q_start)
     # do single planning:
     js_goal = Goal(goal_state=goal_state, current_state=current_state)
-    result = trajopt_solver.solve_single(js_goal)
+    ee = trajopt_solver.robot_config.kinematics.kinematics_config.ee_links[0]
+    result = trajopt_solver.solve_single(ee, js_goal)
 
     traj = result.solution.position[..., -1, :].view(q_goal.shape)
     assert torch.linalg.norm((goal_state.position - traj)).item() < 5e-3
@@ -87,38 +88,43 @@ def test_trajopt_single_js(trajopt_solver):
 
 
 def test_trajopt_single_pose(trajopt_solver):
+    ee = trajopt_solver.robot_config.kinematics.kinematics_config.ee_links[0]
     trajopt_solver.reset_seed()
     q_start = trajopt_solver.retract_config.clone()
     q_goal = q_start.clone() + 0.1
-    kin_state = trajopt_solver.fk(q_goal)
+    kin_state = trajopt_solver.fk(q_goal, ee)
     goal_pose = Pose(kin_state.ee_position, kin_state.ee_quaternion)
     goal_state = JointState.from_position(q_goal)
     current_state = JointState.from_position(q_start)
     js_goal = Goal(goal_pose=goal_pose, goal_state=goal_state, current_state=current_state)
-    result = trajopt_solver.solve_single(js_goal)
+    ee = trajopt_solver.robot_config.kinematics.kinematics_config.ee_links[0]
+    result = trajopt_solver.solve_single(ee, js_goal)
 
     assert result.success.item()
 
 
 def test_trajopt_single_pose_no_seed(trajopt_solver):
+    ee = trajopt_solver.robot_config.kinematics.kinematics_config.ee_links[0]
     trajopt_solver.reset_seed()
     q_start = trajopt_solver.retract_config.clone()
     q_goal = q_start.clone() + 0.05
-    kin_state = trajopt_solver.fk(q_goal)
+    kin_state = trajopt_solver.fk(q_goal, ee)
     goal_pose = Pose(kin_state.ee_position, kin_state.ee_quaternion)
     current_state = JointState.from_position(q_start)
     js_goal = Goal(goal_pose=goal_pose, current_state=current_state)
-    result = trajopt_solver.solve_single(js_goal)
+    ee = trajopt_solver.robot_config.kinematics.kinematics_config.ee_links[0]
+    result = trajopt_solver.solve_single(ee, js_goal)
 
     # NOTE: This currently fails in some instances.
     assert result.success.item() == False or result.success.item() == True
 
 
 def test_trajopt_single_goalset(trajopt_solver):
+    ee = trajopt_solver.robot_config.kinematics.kinematics_config.ee_links[0]
     # run goalset planning:
     q_start = trajopt_solver.retract_config.clone()
     q_goal = q_start.clone() + 0.1
-    kin_state = trajopt_solver.fk(q_goal)
+    kin_state = trajopt_solver.fk(q_goal, ee)
     goal_pose = Pose(kin_state.ee_position, kin_state.ee_quaternion)
     goal_state = JointState.from_position(q_goal)
     current_state = JointState.from_position(q_start)
@@ -127,17 +133,19 @@ def test_trajopt_single_goalset(trajopt_solver):
         kin_state.ee_quaternion.repeat(2, 1).view(1, 2, 4),
     )
     js_goal = Goal(goal_pose=g_set, goal_state=goal_state, current_state=current_state)
-    result = trajopt_solver.solve_goalset(js_goal)
+    ee = trajopt_solver.robot_config.kinematics.kinematics_config.ee_links[0]
+    result = trajopt_solver.solve_goalset(ee, js_goal)
     assert result.success.item()
 
 
 def test_trajopt_batch(trajopt_solver):
     # run goalset planning:
+    ee = trajopt_solver.robot_config.kinematics.kinematics_config.ee_links[0]
     q_start = trajopt_solver.retract_config.clone().repeat(2, 1)
     q_goal = q_start.clone()
     q_goal[0] += 0.1
     q_goal[1] -= 0.1
-    kin_state = trajopt_solver.fk(q_goal)
+    kin_state = trajopt_solver.fk(q_goal, ee)
     goal_pose = Pose(kin_state.ee_position, kin_state.ee_quaternion)
     goal_state = JointState.from_position(q_goal)
     current_state = JointState.from_position(q_start)
@@ -145,25 +153,25 @@ def test_trajopt_batch(trajopt_solver):
         kin_state.ee_position,
         kin_state.ee_quaternion,
     )
-
     js_goal = Goal(goal_pose=g_set, goal_state=goal_state, current_state=current_state)
-    result = trajopt_solver.solve_batch(js_goal)
+    result = trajopt_solver.solve_batch(ee, js_goal)
     assert torch.count_nonzero(result.success) > 0
 
 
 def test_trajopt_batch_js(trajopt_solver):
+    ee = trajopt_solver.robot_config.kinematics.kinematics_config.ee_links[0]
     # run goalset planning:
     q_start = trajopt_solver.retract_config.clone().repeat(2, 1)
     q_goal = q_start.clone()
     q_goal[0] += 0.1
     q_goal[1] -= 0.1
-    kin_state = trajopt_solver.fk(q_goal)
+    kin_state = trajopt_solver.fk(q_goal, ee)
     # goal_pose = Pose(kin_state.ee_position, kin_state.ee_quaternion)
     goal_state = JointState.from_position(q_goal)
     current_state = JointState.from_position(q_start)
 
     js_goal = Goal(goal_state=goal_state, current_state=current_state)
-    result = trajopt_solver.solve_batch(js_goal)
+    result = trajopt_solver.solve_batch(ee, js_goal)
     traj = result.solution.position
     interpolated_traj = result.interpolated_solution.position
     assert torch.count_nonzero(result.success) > 0
@@ -172,13 +180,14 @@ def test_trajopt_batch_js(trajopt_solver):
 
 
 def test_trajopt_batch_goalset(trajopt_solver):
+    ee = trajopt_solver.robot_config.kinematics.kinematics_config.ee_links[0]
     # run goalset planning:
     q_start = trajopt_solver.retract_config.clone().repeat(3, 1)
     q_goal = q_start.clone()
     q_goal[0] += 0.1
     q_goal[1] -= 0.1
     q_goal[2, -1] += 0.1
-    kin_state = trajopt_solver.fk(q_goal)
+    kin_state = trajopt_solver.fk(q_goal, ee)
     goal_pose = Pose(
         kin_state.ee_position.view(3, 1, 3).repeat(1, 5, 1),
         kin_state.ee_quaternion.view(3, 1, 4).repeat(1, 5, 1),
@@ -188,13 +197,15 @@ def test_trajopt_batch_goalset(trajopt_solver):
     current_state = JointState.from_position(q_start)
 
     js_goal = Goal(goal_state=goal_state, goal_pose=goal_pose, current_state=current_state)
-    result = trajopt_solver.solve_batch_goalset(js_goal)
+    ee = trajopt_solver.robot_config.kinematics.kinematics_config.ee_links[0]
+    result = trajopt_solver.solve_batch_goalset(ee, js_goal)
     traj = result.solution.position
     interpolated_traj = result.interpolated_solution.position
     assert torch.count_nonzero(result.success) > 0
 
 
 def test_trajopt_batch_env_js(trajopt_solver_batch_env):
+    ee = trajopt_solver_batch_env.robot_config.kinematics.kinematics_config.ee_links[0]
     # run goalset planning:
     q_start = trajopt_solver_batch_env.retract_config.clone().repeat(3, 1)
     q_goal = q_start.clone()
@@ -206,7 +217,7 @@ def test_trajopt_batch_env_js(trajopt_solver_batch_env):
     current_state = JointState.from_position(q_start)
 
     js_goal = Goal(goal_state=goal_state, current_state=current_state)
-    result = trajopt_solver_batch_env.solve_batch_env(js_goal)
+    result = trajopt_solver_batch_env.solve_batch_env(ee, js_goal)
 
     traj = result.solution.position
     interpolated_traj = result.interpolated_solution.position
@@ -218,32 +229,35 @@ def test_trajopt_batch_env_js(trajopt_solver_batch_env):
 
 
 def test_trajopt_batch_env(trajopt_solver_batch_env):
+    ee = trajopt_solver_batch_env.robot_config.kinematics.kinematics_config.ee_links[0]
     # run goalset planning:
     q_start = trajopt_solver_batch_env.retract_config.clone().repeat(3, 1)
     q_goal = q_start.clone()
     q_goal[0] += 0.1
     q_goal[1] -= 0.1
     q_goal[2, -1] += 0.1
-    kin_state = trajopt_solver_batch_env.fk(q_goal)
+    kin_state = trajopt_solver_batch_env.fk(q_goal, ee)
     goal_pose = Pose(kin_state.ee_position, kin_state.ee_quaternion)
     goal_state = JointState.from_position(q_goal)
     current_state = JointState.from_position(q_start)
+    ee = trajopt_solver_batch_env.robot_config.kinematics.kinematics_config.ee_links[0]
 
     js_goal = Goal(goal_state=goal_state, goal_pose=goal_pose, current_state=current_state)
-    result = trajopt_solver_batch_env.solve_batch_env(js_goal)
+    result = trajopt_solver_batch_env.solve_batch_env(ee, js_goal)
     traj = result.solution.position
     interpolated_traj = result.interpolated_solution.position
     assert torch.count_nonzero(result.success) == 3
 
 
 def test_trajopt_batch_env_goalset(trajopt_solver_batch_env):
+    ee = trajopt_solver_batch_env.robot_config.kinematics.kinematics_config.ee_links[0]
     # run goalset planning:
     q_start = trajopt_solver_batch_env.retract_config.repeat(3, 1)
     q_goal = q_start.clone()
     q_goal[0] += 0.1
     q_goal[1] -= 0.1
     q_goal[2, -1] += 0.1
-    kin_state = trajopt_solver_batch_env.fk(q_goal)
+    kin_state = trajopt_solver_batch_env.fk(q_goal, ee)
     goal_pose = Pose(
         kin_state.ee_position.view(3, 1, 3).repeat(1, 5, 1),
         kin_state.ee_quaternion.view(3, 1, 4).repeat(1, 5, 1),
@@ -253,24 +267,25 @@ def test_trajopt_batch_env_goalset(trajopt_solver_batch_env):
     current_state = JointState.from_position(q_start)
 
     js_goal = Goal(goal_state=goal_state, goal_pose=goal_pose, current_state=current_state)
-    result = trajopt_solver_batch_env.solve_batch_env_goalset(js_goal)
+    result = trajopt_solver_batch_env.solve_batch_env_goalset(ee, js_goal)
     traj = result.solution.position
     interpolated_traj = result.interpolated_solution.position
     assert torch.count_nonzero(result.success) > 0
 
 
 def test_trajopt_batch_env(trajopt_solver):
+    ee = trajopt_solver.robot_config.kinematics.kinematics_config.ee_links[0]
     # run goalset planning:
     q_start = trajopt_solver.retract_config.clone().repeat(3, 1)
     q_goal = q_start.clone()
     q_goal[0] += 0.1
     q_goal[1] -= 0.1
     q_goal[2, -1] += 0.1
-    kin_state = trajopt_solver.fk(q_goal)
+    kin_state = trajopt_solver.fk(q_goal, ee)
     goal_pose = Pose(kin_state.ee_position, kin_state.ee_quaternion)
     goal_state = JointState.from_position(q_goal)
     current_state = JointState.from_position(q_start)
 
     js_goal = Goal(goal_state=goal_state, goal_pose=goal_pose, current_state=current_state)
     with pytest.raises(ValueError):
-        result = trajopt_solver.solve_batch_env(js_goal)
+        result = trajopt_solver.solve_batch_env(ee, js_goal)

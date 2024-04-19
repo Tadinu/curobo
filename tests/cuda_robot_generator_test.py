@@ -24,7 +24,7 @@ def test_cuda_robot_generator_config():
         "kinematics"
     ]
     config = CudaRobotGeneratorConfig(**robot_params)
-    assert config.ee_link == robot_params["ee_link"]
+    assert config.ee_links == robot_params["ee_links"]
 
 
 def test_cuda_robot_generator():

@@ -162,7 +162,7 @@ class ParticleOptBase(Optimizer, ParticleOptConfig):
         """
         return False
 
-    def generate_rollouts(self, init_act=None):
+    def generate_rollouts(self, ee: str, init_act=None):
         """
         Samples a batch of actions, rolls out trajectories for each particle
         and returns the resulting observations, costs,
@@ -175,15 +175,17 @@ class ParticleOptBase(Optimizer, ParticleOptConfig):
         """
 
         act_seq = self.sample_actions(init_act)
-        trajectories = self.rollout_fn(act_seq)
+        trajectories = self.rollout_fn(ee, act_seq)
         return trajectories
 
-    def _optimize(self, init_act: torch.Tensor, shift_steps=0, n_iters=None):
+    def _optimize(self, ee: str, init_act: torch.Tensor, shift_steps=0, n_iters=None):
         """
         Optimize for best action at current state
 
         Parameters
         ----------
+        ee: end-effector link name
+
         state : torch.Tensor
             state to calculate optimal action from
 
@@ -207,22 +209,22 @@ class ParticleOptBase(Optimizer, ParticleOptConfig):
         if self.use_cuda_graph and self.cu_opt_init:
             curr_action_seq = self._call_cuda_opt_iters(init_act)
         else:
-            curr_action_seq = self._run_opt_iters(
+            curr_action_seq = self._run_opt_iters(ee,
                 init_act, n_iters=n_iters, shift_steps=shift_steps
             )
         if self.use_cuda_graph:
             if not self.cu_opt_init:
-                self._initialize_cuda_graph(init_act, shift_steps=shift_steps)
+                self._initialize_cuda_graph(ee, init_act, shift_steps=shift_steps)
 
         self.num_steps += 1
         if self.calculate_value:
-            trajectories = self.generate_rollouts(init_act)
+            trajectories = self.generate_rollouts(ee, init_act)
             value = self._calc_val(trajectories)
             self.info["value"] = value
         # print(self.act_seq)
         return curr_action_seq
 
-    def _initialize_cuda_graph(self, init_act: T_HDOF_float, shift_steps=0):
+    def _initialize_cuda_graph(self, ee: str, init_act: T_HDOF_float, shift_steps=0):
         log_info("ParticleOptBase: Creating Cuda Graph")
         self._cu_act_in = init_act.detach().clone()
 
@@ -231,14 +233,14 @@ class ParticleOptBase(Optimizer, ParticleOptConfig):
         s.wait_stream(torch.cuda.current_stream(device=self.tensor_args.device))
         with torch.cuda.stream(s):
             for _ in range(3):
-                self._cu_act_seq = self._run_opt_iters(self._cu_act_in, shift_steps=shift_steps)
+                self._cu_act_seq = self._run_opt_iters(ee, self._cu_act_in, shift_steps=shift_steps)
         torch.cuda.current_stream(device=self.tensor_args.device).wait_stream(s)
 
         self.reset()
         self.cu_opt_graph = torch.cuda.CUDAGraph()
 
         with torch.cuda.graph(self.cu_opt_graph, stream=s):
-            self._cu_act_seq = self._run_opt_iters(self._cu_act_in, shift_steps=shift_steps)
+            self._cu_act_seq = self._run_opt_iters(ee, self._cu_act_in, shift_steps=shift_steps)
         self.cu_opt_init = True
 
     def _call_cuda_opt_iters(self, init_act: T_HDOF_float):
@@ -246,7 +248,7 @@ class ParticleOptBase(Optimizer, ParticleOptConfig):
         self.cu_opt_graph.replay()
         return self._cu_act_seq.detach().clone()  # .clone()
 
-    def _run_opt_iters(self, init_act: T_HDOF_float, shift_steps=0, n_iters=None):
+    def _run_opt_iters(self, ee: str, init_act: T_HDOF_float, shift_steps=0, n_iters=None):
         n_iters = n_iters if n_iters is not None else self.n_iters
 
         self._shift(shift_steps)
@@ -256,7 +258,7 @@ class ParticleOptBase(Optimizer, ParticleOptConfig):
 
         for _ in range(n_iters):
             # generate random simulated trajectories
-            trajectory = self.generate_rollouts()
+            trajectory = self.generate_rollouts(ee)
             trajectory.actions = trajectory.actions.view(
                 self.n_problems, self.particles_per_problem, self.action_horizon, self.d_action
             )

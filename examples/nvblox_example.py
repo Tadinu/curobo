@@ -109,7 +109,7 @@ def demo_motion_gen_nvblox():
     motion_gen = MotionGen(motion_gen_config)
     robot_cfg = load_yaml(join_path(get_robot_configs_path(), robot_file))["robot_cfg"]
     robot_cfg = RobotConfig.from_dict(robot_cfg, tensor_args)
-    motion_gen.warmup()
+    motion_gen.warmup(ee)
     print("ready")
     # print("Trajectory Generated: ", result.success)
     # if PLOT:

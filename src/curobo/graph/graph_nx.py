@@ -89,7 +89,7 @@ class NetworkxGraph(object):
             k = dict_keys[i]
             # print(i,k, max_n)
             if k >= max_n:
-                print(k, max_n)
+                print("get_path_lengths", k, max_n)
                 continue
             path_lengths[k] = path_length_dict[k]
         path_lengths = torch.as_tensor(path_lengths)

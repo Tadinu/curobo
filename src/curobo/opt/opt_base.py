@@ -151,7 +151,7 @@ class Optimizer(OptimizerConfig):
         self.debug = []
         self.debug_cost = []
 
-    def optimize(self, opt_tensor: torch.Tensor, shift_steps=0, n_iters=None) -> torch.Tensor:
+    def optimize(self, ee: str, opt_tensor: torch.Tensor, shift_steps=0, n_iters=None) -> torch.Tensor:
         """Find a solution through optimization given the initial values for variables.
 
         Args:
@@ -167,7 +167,7 @@ class Optimizer(OptimizerConfig):
             n_iters = self.cold_start_n_iters
             self.COLD_START = False
         st_time = time.time()
-        out = self._optimize(opt_tensor, shift_steps, n_iters)
+        out = self._optimize(ee, opt_tensor, shift_steps, n_iters)
         if self.sync_cuda_time:
             torch.cuda.synchronize(device=self.tensor_args.device)
         self.opt_dt = time.time() - st_time
@@ -237,10 +237,11 @@ class Optimizer(OptimizerConfig):
         return self._rollout_list
 
     @abstractmethod
-    def _optimize(self, opt_tensor: torch.Tensor, shift_steps=0, n_iters=None) -> torch.Tensor:
+    def _optimize(self, ee: str, opt_tensor: torch.Tensor, shift_steps=0, n_iters=None) -> torch.Tensor:
         """Implement this function in a derived class containing the solver.
 
         Args:
+            ee: end-effector link name
             opt_tensor: Initial value of optimization variables.
                         Shape: [n_problems, action_horizon, d_action]
             shift_steps: Shift variables along action_horizon. Useful in mpc warm-start setting.

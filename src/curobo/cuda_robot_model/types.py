@@ -295,8 +295,8 @@ class KinematicsTensorConfig:
     #: Additional debug parameters.
     debug: Optional[Any] = None
 
-    #: index of end-effector in stored link poses.
-    ee_idx: int = 0
+    #: List indexes of end-effector in stored link poses.
+    ee_idxes: List[int] = None
 
     #: Cspace configuration
     cspace: Optional[CSpaceConfig] = None
@@ -304,14 +304,16 @@ class KinematicsTensorConfig:
     #: Name of base link. This is the root link from which all kinematic parameters were computed.
     base_link: str = "base_link"
 
-    #: Name of end-effector link for which the Cartesian pose will be computed.
-    ee_link: str = "ee_link"
+    #: List of end-effector link names for which the Cartesian pose will be computed.
+    ee_links: List[str] = None
 
     #: A copy of link spheres that is used as reference, in case the link_spheres get modified at
     #: runtime.
     reference_link_spheres: Optional[torch.Tensor] = None
 
     def __post_init__(self):
+        if self.ee_links is None:
+            self.ee_links = ["ee_links"]
         if self.cspace is None and self.joint_limits is not None:
             self.load_cspace_cfg_from_kinematics()
         if self.joint_limits is not None and self.cspace is not None:
@@ -340,8 +342,8 @@ class KinematicsTensorConfig:
         ):
             self.reference_link_spheres.copy_(new_config.reference_link_spheres)
         self.base_link = new_config.base_link
-        self.ee_idx = new_config.ee_idx
-        self.ee_link = new_config.ee_link
+        self.ee_idxes = new_config.ee_idxes
+        self.ee_links = new_config.ee_links
         self.debug = new_config.debug
         self.cspace.copy_(new_config.cspace)
         self.n_dof = new_config.n_dof

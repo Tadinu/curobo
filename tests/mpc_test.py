@@ -92,7 +92,7 @@ def mpc_batch_env():
     mpc = MpcSolver(mpc_config)
     retract_cfg = robot_cfg.cspace.retract_config.view(1, -1)
 
-    return [mpc, retract_cfg]
+    return [mpc, retract_cfg, robot_cfg["kinematics"]["ee_links"][0]]
 
 
 @pytest.mark.parametrize(
@@ -138,8 +138,9 @@ def test_mpc_single(mpc_str, expected, request):
 def test_mpc_goalset(mpc_single_env):
     mpc = mpc_single_env[0]
     retract_cfg = mpc_single_env[1]
+    ee = mpc_single_env[2]
     start_state = retract_cfg
-    state = mpc.rollout_fn.compute_kinematics(JointState.from_position(retract_cfg))
+    state = mpc.rollout_fn.compute_kinematics(ee, JointState.from_position(retract_cfg))
     retract_pose = Pose(
         state.ee_pos_seq.repeat(2, 1).unsqueeze(0),
         quaternion=state.ee_quat_seq.repeat(2, 1).unsqueeze(0),
@@ -173,8 +174,9 @@ def test_mpc_goalset(mpc_single_env):
 def test_mpc_batch(mpc_single_env):
     mpc = mpc_single_env[0]
     retract_cfg = mpc_single_env[1].repeat(2, 1)
+    ee = mpc_single_env[2]
     start_state = retract_cfg
-    state = mpc.rollout_fn.compute_kinematics(JointState.from_position(retract_cfg))
+    state = mpc.rollout_fn.compute_kinematics(ee, JointState.from_position(retract_cfg))
     retract_pose = Pose(state.ee_pos_seq, quaternion=state.ee_quat_seq)
     retract_pose.position[0, 0] -= 0.02
     goal = Goal(
@@ -206,8 +208,9 @@ def test_mpc_batch(mpc_single_env):
 def test_mpc_batch_env(mpc_batch_env):
     mpc = mpc_batch_env[0]
     retract_cfg = mpc_batch_env[1].repeat(2, 1)
+    ee = mpc_batch_env[2]
     start_state = retract_cfg
-    state = mpc.rollout_fn.compute_kinematics(JointState.from_position(retract_cfg))
+    state = mpc.rollout_fn.compute_kinematics(ee, JointState.from_position(retract_cfg))
     retract_pose = Pose(state.ee_pos_seq, quaternion=state.ee_quat_seq)
     goal = Goal(
         current_state=JointState.from_position(retract_cfg + 0.5, joint_names=mpc.joint_names),

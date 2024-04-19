@@ -60,15 +60,15 @@ class WrapBase(WrapConfig):
         self._opt_rollouts = None
         self._init_solver = False
 
-    def get_metrics(self, state: State, use_cuda_graph: bool = False) -> RolloutMetrics:
+    def get_metrics(self, ee: str, state: State, use_cuda_graph: bool = False) -> RolloutMetrics:
         if use_cuda_graph:
             log_info("Using cuda graph")
-            return self.safety_rollout.get_metrics_cuda_graph(state)
-        return self.safety_rollout.get_metrics(state)
+            return self.safety_rollout.get_metrics_cuda_graph(ee, state)
+        return self.safety_rollout.get_metrics(ee, state)
 
-    def optimize(self, act_seq: torch.Tensor, shift_steps: int = 0) -> torch.Tensor:
+    def optimize(self, ee: str, act_seq: torch.Tensor, shift_steps: int = 0) -> torch.Tensor:
         for opt in self.optimizers:
-            act_seq = opt.optimize(act_seq, shift_steps)
+            act_seq = opt.optimize(ee, act_seq, shift_steps)
         return act_seq
 
     def get_debug_data(self):
@@ -131,7 +131,7 @@ class WrapBase(WrapConfig):
     def tensor_args(self):
         return self.safety_rollout.tensor_args
 
-    def solve(self, goal: Goal, seed: Optional[torch.Tensor] = None):
+    def solve(self, ee: str, goal: Goal, seed: Optional[torch.Tensor] = None):
         metrics = None
 
         filtered_state = self.safety_rollout.filter_robot_state(goal.current_state)
@@ -146,9 +146,9 @@ class WrapBase(WrapConfig):
         if not self._init_solver:
             log_info("Solver was not initialized, warming up solver")
             for _ in range(2):
-                act_seq = self.optimize(seed, shift_steps=0)
+                act_seq = self.optimize(ee, seed, shift_steps=0)
             self._init_solver = True
-        act_seq = self.optimize(seed, shift_steps=0)
+        act_seq = self.optimize(ee, seed, shift_steps=0)
         self.opt_dt = time.time() - start_time
 
         act = self.safety_rollout.get_robot_command(
@@ -157,7 +157,7 @@ class WrapBase(WrapConfig):
 
         if self.compute_metrics:
             with profiler.record_function("wrap_base/compute_metrics"):
-                metrics = self.get_metrics(
+                metrics = self.get_metrics(ee,
                     act, self.use_cuda_graph_metrics
                 )  # TODO: use cuda graph for metrics
 

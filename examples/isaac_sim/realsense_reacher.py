@@ -235,7 +235,8 @@ if __name__ == "__main__":
     )
     motion_gen = MotionGen(motion_gen_config)
     print("warming up..")
-    motion_gen.warmup(warmup_js_trajopt=False)
+    ee = motion_gen_config.robot_cfg.kinematics.kinematics_config.ee_links[0]
+    motion_gen.warmup(ee, warmup_js_trajopt=False)
 
     world_model = motion_gen.world_collision
     realsense_data = RealsenseDataloader(clipping_distance_m=clipping_distance)
@@ -367,7 +368,7 @@ if __name__ == "__main__":
             )
 
             result = motion_gen.plan_single(cu_js.unsqueeze(0), ik_goal, plan_config)
-            # ik_result = ik_solver.solve_single(ik_goal, cu_js.position.view(1,-1), cu_js.position.view(1,1,-1))
+            # ik_result = ik_solver.solve_single(ee, ik_goal, cu_js.position.view(1,-1), cu_js.position.view(1,1,-1))
 
             succ = result.success.item()  # ik_result.success.item()
             if succ:

@@ -73,17 +73,18 @@ def motion_gen_ur5e():
 def test_motion_gen_velocity_scale(motion_gen):
     retract_cfg = motion_gen.get_retract_config()
 
-    state = motion_gen.compute_kinematics(JointState.from_position(retract_cfg.view(1, -1)))
+    for ee in retract_cfg.ee_links:
+        state = motion_gen.compute_kinematics(ee, JointState.from_position(retract_cfg.view(1, -1)))
 
-    goal_pose = Pose(state.ee_pos_seq, quaternion=state.ee_quat_seq)
+        goal_pose = Pose(state.ee_pos_seq, quaternion=state.ee_quat_seq)
 
-    start_state = JointState.from_position(retract_cfg.view(1, -1) + 0.3)
+        start_state = JointState.from_position(retract_cfg.view(1, -1) + 0.3)
 
-    m_config = MotionGenPlanConfig(False, True, max_attempts=10)
+        m_config = MotionGenPlanConfig(False, True, max_attempts=10)
 
-    result = motion_gen.plan_single(start_state, goal_pose, m_config)
+        result = motion_gen.plan_single(start_state, goal_pose, m_config)
 
-    assert torch.count_nonzero(result.success) == 1
+        assert torch.count_nonzero(result.success) == 1
 
 
 @pytest.mark.parametrize(

@@ -462,6 +462,7 @@ class MpcSolver(MpcSolverConfig):
 
     def step(
         self,
+        ee: str,
         current_state: JointState,
         shift_steps: int = 1,
         seed_traj: Optional[JointState] = None,
@@ -482,7 +483,7 @@ class MpcSolver(MpcSolverConfig):
         converged = True
 
         for _ in range(max_attempts):
-            result = self._step_once(current_state.clone(), shift_steps, seed_traj)
+            result = self._step_once(ee, current_state.clone(), shift_steps, seed_traj)
             if (
                 torch.count_nonzero(torch.isnan(result.action.position)) == 0
                 and torch.count_nonzero(~result.metrics.feasible) == 0
@@ -595,6 +596,7 @@ class MpcSolver(MpcSolverConfig):
 
     def _step_once(
         self,
+        ee: str,
         current_state: JointState,
         shift_steps: int = 1,
         seed_traj: Optional[JointState] = None,
@@ -629,7 +631,7 @@ class MpcSolver(MpcSolverConfig):
             result.solve_time = time.time() - st_time
         else:
             self._step_goal_buffer.current_state.copy_(current_state)
-            result = self._solve_from_solve_state(
+            result = self._solve_from_solve_state(ee,
                 self._solve_state,
                 self._step_goal_buffer,
                 shift_steps,
@@ -682,6 +684,7 @@ class MpcSolver(MpcSolverConfig):
 
     def _solve_from_solve_state(
         self,
+        ee: str,
         solve_state: ReacherSolveState,
         goal: Goal,
         shift_steps: int = 1,
@@ -708,12 +711,13 @@ class MpcSolver(MpcSolverConfig):
         if seed_traj is not None:
             self.solver.update_init_seed(seed_traj)
 
-        result = self.solver.solve(goal_buffer, seed_traj, shift_steps)
+        result = self.solver.solve(ee, goal_buffer, seed_traj, shift_steps)
         result.js_action = self.rollout_fn.get_full_dof_from_solution(result.action)
         return result
 
     def _mpc_step(
         self,
+        ee: str,
         current_state: JointState,
         shift_steps: int = 1,
         seed_traj: Optional[JointState] = None,
@@ -730,7 +734,7 @@ class MpcSolver(MpcSolverConfig):
             WrapResult: Result of the optimization.
         """
         self._step_goal_buffer.current_state.copy_(current_state)
-        result = self._solve_from_solve_state(
+        result = self._solve_from_solve_state(ee,
             self._solve_state,
             self._step_goal_buffer,
             shift_steps,

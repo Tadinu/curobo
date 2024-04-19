@@ -156,7 +156,8 @@ def main():
     default_config = robot_cfg["kinematics"]["cspace"]["retract_config"]
 
     print("warming up...")
-    motion_gen.warmup(
+    ee = motion_gen_config.robot_cfg.kinematics.kinematics_config.ee_links[0]
+    motion_gen.warmup(ee,
         batch=n_envs,
         batch_env_mode=True,
         warmup_js_trajopt=False,

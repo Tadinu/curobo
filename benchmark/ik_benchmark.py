@@ -78,16 +78,17 @@ def run_full_config_collision_free_ik(
     )
     ik_solver = IKSolver(ik_config)
 
+    ee = robot_data["kinematics"]["ee_links"][0]
     for _ in range(3):
         q_sample = ik_solver.sample_configs(batch_size)
         while q_sample.shape[0] == 0:
             q_sample = ik_solver.sample_configs(batch_size)
 
-        kin_state = ik_solver.fk(q_sample)
+        kin_state = ik_solver.fk(q_sample, ee)
         goal = Pose(kin_state.ee_position, kin_state.ee_quaternion)
 
         st_time = time.time()
-        result = ik_solver.solve_batch(goal)
+        result = ik_solver.solve_batch(ee, goal)
         torch.cuda.synchronize()
         total_time = (time.time() - st_time) / q_sample.shape[0]
     return (

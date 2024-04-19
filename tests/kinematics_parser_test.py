@@ -48,7 +48,7 @@ if not check_usd_file_exists():
 def robot_params_all():
     robot_file = "franka.yml"
     robot_params = load_yaml(join_path(get_robot_configs_path(), robot_file))["robot_cfg"]
-    robot_params["kinematics"]["ee_link"] = "panda_link7"
+    robot_params["kinematics"]["ee_links"] = "panda_link7"
     robot_params["kinematics"]["base_link"] = "panda_link0"
     robot_params["kinematics"]["collision_link_names"] = []
     robot_params["kinematics"]["lock_joints"] = None
@@ -111,11 +111,11 @@ def test_chain_parse(urdf_parser, usd_parser, robot_params_all):
     robot_params = robot_params_all
 
     urdf_chain = urdf_parser.get_chain(
-        robot_params["kinematics"]["base_link"], robot_params["kinematics"]["ee_link"]
+        robot_params["kinematics"]["base_link"], robot_params["kinematics"]["ee_links"][0]
     )
 
     usd_chain = usd_parser.get_chain(
-        robot_params["kinematics"]["base_link"], robot_params["kinematics"]["ee_link"]
+        robot_params["kinematics"]["base_link"], robot_params["kinematics"]["ee_links"][0]
     )
     assert usd_chain == urdf_chain
 

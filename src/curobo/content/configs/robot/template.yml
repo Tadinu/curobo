@@ -21,7 +21,7 @@ robot_cfg:
     asset_root_path: ""
     
     base_link: "FILL_THIS"
-    ee_link: "FILL_THIS"
+    ee_links: ["FILL_THIS"]
     link_names: null
     lock_joints: null
     extra_links: null

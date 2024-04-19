@@ -34,8 +34,8 @@ robot_cfg:
         j2s7s300_joint_finger_tip_2: "Z",
         j2s7s300_joint_finger_tip_3: "Z",
     }
-    base_link: "root"
-    ee_link: "j2s7s300_end_effector"
+    base_link: "j2s7s300_link_base"
+    ee_links: ["j2s7s300_end_effector"]
     link_names: null
     
     collision_link_names: [

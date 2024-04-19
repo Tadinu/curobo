@@ -187,7 +187,7 @@ class ArmReacher(ArmBase, ArmReacherConfig):
 
         if self.cost_cfg.link_pose_cfg is not None:
             for i in self.kinematics.link_names:
-                if i != self.kinematics.ee_link:
+                if i not in self.kinematics.ee_links:
                     self._link_pose_costs[i] = PoseCost(self.cost_cfg.link_pose_cfg)
         if self.cost_cfg.straight_line_cfg is not None:
             self.straight_line_cost = StraightLineCost(self.cost_cfg.straight_line_cfg)
@@ -223,7 +223,7 @@ class ArmReacher(ArmBase, ArmReacherConfig):
 
         if self.convergence_cfg.link_pose_cfg is not None:
             for i in self.kinematics.link_names:
-                if i != self.kinematics.ee_link:
+                if i not in self.kinematics.ee_links:
                     self._link_pose_convergence[i] = PoseCost(self.convergence_cfg.link_pose_cfg)
         if self.convergence_cfg.cspace_cfg is not None:
             self.cspace_convergence = DistCost(self.convergence_cfg.cspace_cfg)
@@ -270,7 +270,7 @@ class ArmReacher(ArmBase, ArmReacherConfig):
                 link_poses = state.link_pose
 
                 for k in self._goal_buffer.links_goal_pose.keys():
-                    if k != self.kinematics.ee_link:
+                    if k not in self.kinematics.ee_links:
                         current_fn = self._link_pose_costs[k]
                         if current_fn.enabled:
                             # get link pose
@@ -362,7 +362,7 @@ class ArmReacher(ArmBase, ArmReacherConfig):
             link_poses = state.link_pose
 
             for k in self._goal_buffer.links_goal_pose.keys():
-                if k != self.kinematics.ee_link:
+                if k not in self.kinematics.ee_links:
                     current_fn = self._link_pose_convergence[k]
                     if current_fn.enabled:
                         # get link pose

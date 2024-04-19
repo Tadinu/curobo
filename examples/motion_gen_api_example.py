@@ -45,7 +45,8 @@ def demo_motion_gen_api():
     )
     motion_gen = MotionGen(motion_gen_cfg)
 
-    motion_gen.warmup()
+    ee = motion_gen.robot_cfg.kinematics.kinematics_config.ee_links[0]
+    motion_gen.warmup(ee)
 
     # create world representation:
     motion_gen.world_coll_checker.clear_cache()

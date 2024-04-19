@@ -226,7 +226,8 @@ def main():
     )
     motion_gen = MotionGen(motion_gen_config)
     print("warming up...")
-    motion_gen.warmup(enable_graph=True, warmup_js_trajopt=False, parallel_finetune=True)
+    ee = motion_gen_config.robot_cfg.kinematics.kinematics_config.ee_links[0]
+    motion_gen.warmup(ee, enable_graph=True, warmup_js_trajopt=False, parallel_finetune=True)
 
     print("Curobo is Ready")
 
@@ -332,7 +333,7 @@ def main():
         cu_js = cu_js.get_ordered_joint_state(motion_gen.kinematics.joint_names)
 
         if args.visualize_spheres and step_index % 2 == 0:
-            sph_list = motion_gen.kinematics.get_robot_as_spheres(cu_js.position)
+            sph_list = motion_gen.kinematics.get_robot_as_spheres(cu_js.position, ee)
 
             if spheres is None:
                 spheres = []
@@ -375,7 +376,7 @@ def main():
             )
             plan_config.pose_cost_metric = pose_metric
             result = motion_gen.plan_single(cu_js.unsqueeze(0), ik_goal, plan_config)
-            # ik_result = ik_solver.solve_single(ik_goal, cu_js.position.view(1,-1), cu_js.position.view(1,1,-1))
+            # ik_result = ik_solver.solve_single(ee, ik_goal, cu_js.position.view(1,-1), cu_js.position.view(1,1,-1))
 
             succ = result.success.item()  # ik_result.success.item()
             if num_targets == 1:
