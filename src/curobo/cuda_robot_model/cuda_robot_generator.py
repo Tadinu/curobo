@@ -134,10 +134,10 @@ class CudaRobotGeneratorConfig:
     #: this is deprecated
     add_object_link: bool = False
 
-    use_external_assets: bool = False
+    #use_external_assets: bool = False
 
-    external_asset_path: Optional[str] = None
-    external_robot_configs_path: Optional[str] = None
+    external_asset_path: ClassVar[Optional[str]] = None
+    external_robot_configs_path: ClassVar[Optional[str]] = None
 
     #: Create n collision spheres for links with name
     extra_collision_spheres: Optional[Dict[str, int]] = None
@@ -153,10 +153,10 @@ class CudaRobotGeneratorConfig:
         # Check if an external asset path is provided:
         asset_path = get_assets_path()
         robot_path = get_robot_configs_path()
-        if self.external_asset_path is not None:
-            asset_path = self.external_asset_path
-        if self.external_robot_configs_path is not None:
-            robot_path = self.external_robot_configs_path
+        if CudaRobotGeneratorConfig.external_asset_path is not None:
+            asset_path = CudaRobotGeneratorConfig.external_asset_path
+        if CudaRobotGeneratorConfig.external_robot_configs_path is not None:
+            robot_path = CudaRobotGeneratorConfig.external_robot_configs_path
 
         if self.urdf_path is not None:
             self.urdf_path = join_path(asset_path, self.urdf_path)
