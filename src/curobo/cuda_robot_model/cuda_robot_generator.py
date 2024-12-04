@@ -182,11 +182,11 @@ class CudaRobotGeneratorConfig:
             log_warn("Deprecated: external_robot_configs_path is deprecated, use ContentPath")
             robot_path = self.external_robot_configs_path
 
-        if self.urdf_path is not None:
+        if self.urdf_path is not None and not os.path.isabs(self.urdf_path):
             self.urdf_path = join_path(asset_path, self.urdf_path)
-        if self.usd_path is not None:
+        if self.usd_path is not None and not os.path.isabs(self.usd_path):
             self.usd_path = join_path(asset_path, self.usd_path)
-        if self.asset_root_path != "":
+        if self.asset_root_path and not os.path.isabs(self.asset_root_path):
             self.asset_root_path = join_path(asset_path, self.asset_root_path)
         elif self.urdf_path is not None:
             self.asset_root_path = os.path.dirname(self.urdf_path)
