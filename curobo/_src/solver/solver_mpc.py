@@ -47,9 +47,9 @@ class MPCSolver:
     """Implements model predictive control for reaching targets in Cartesian and Joint space."""
 
     def __init__(
-        self,
-        config: MPCSolverCfg,
-        scene_collision_checker: Optional[SceneCollision] = None,
+            self,
+            config: MPCSolverCfg,
+            scene_collision_checker: Optional[SceneCollision] = None,
     ) -> None:
         self.config = config
         self.core = SolverCore(config.core_cfg, scene_collision_checker)
@@ -58,8 +58,8 @@ class MPCSolver:
         command_start_idx = 0
         transition_cfg = self.config.metrics_rollout_config.transition_model_cfg
         if (
-            transition_cfg is not None
-            and transition_cfg.control_space in ControlSpace.bspline_types()
+                transition_cfg is not None
+                and transition_cfg.control_space in ControlSpace.bspline_types()
         ):
             command_start_idx = self.config.interpolation_steps
         self.trajectory_execution_manager = TrajectoryExecutionManager(
@@ -297,13 +297,13 @@ class MPCSolver:
     # -------------------------------------------------------------------
 
     def _prepare_goal_buffer(
-        self,
-        solve_state: SolveState,
-        goal_tool_poses: GoalToolPose,
-        current_state: Optional[JointState] = None,
-        use_implicit_goal: bool = False,
-        seed_goal_state: Optional[JointState] = None,
-        goal_state: Optional[JointState] = None,
+            self,
+            solve_state: SolveState,
+            goal_tool_poses: GoalToolPose,
+            current_state: Optional[JointState] = None,
+            use_implicit_goal: bool = False,
+            seed_goal_state: Optional[JointState] = None,
+            goal_state: Optional[JointState] = None,
         tool_relative_transform_target: Optional[ToolRelativeTransformTarget] = None,
     ) -> Tuple[GoalRegistry, bool]:
         if current_state is None:
@@ -331,10 +331,10 @@ class MPCSolver:
     # -------------------------------------------------------------------
 
     def setup(
-        self,
-        current_state: JointState,
-        tool_frames: Optional[List[str]] = None,
-        dt: Optional[torch.Tensor] = None,
+            self,
+            current_state: JointState,
+            tool_frames: Optional[List[str]] = None,
+            dt: Optional[torch.Tensor] = None,
         tool_relative_transform_target: Optional[ToolRelativeTransformTarget] = None,
     ) -> None:
         """Set up MPC tracking with an optional moving-frame transform target."""
@@ -402,12 +402,12 @@ class MPCSolver:
         self._mpc_setup_complete = True
 
     def _validate_setup_input(
-        self,
-        n_robots: int,
-        current_state: JointState,
-        num_goalset: int,
-        tool_frames: Optional[List[str]] = None,
-        dt: Optional[torch.Tensor] = None,
+            self,
+            n_robots: int,
+            current_state: JointState,
+            num_goalset: int,
+            tool_frames: Optional[List[str]] = None,
+            dt: Optional[torch.Tensor] = None,
     ) -> None:
         if n_robots <= 0:
             log_and_raise(f"n_robots must be greater than 0, got {n_robots}")
@@ -420,7 +420,7 @@ class MPCSolver:
                 log_and_raise("tool_frames must be a list")
             if not all(isinstance(name, str) for name in tool_frames):
                 log_and_raise("tool_frames must be a list of strings")
-            if tool_frames not in self.tool_frames:
+            if not set(tool_frames).issubset(self.tool_frames):
                 log_and_raise(f"tool_frames must be a subset of {self.tool_frames}")
         if current_state.ndim != 2:
             log_and_raise("current_state must be a 2D tensor")
@@ -437,12 +437,12 @@ class MPCSolver:
                 log_and_raise(f"dt must have {n_robots} rows, got {dt.shape[0]}")
 
     def update_goal_tool_poses(
-        self,
-        goal_tool_poses: GoalToolPose,
-        robot_ids: Optional[torch.Tensor] = None,
-        run_ik: bool = True,
-        use_ik_goal: bool = True,
-        use_best_effort_ik: bool = False,
+            self,
+            goal_tool_poses: GoalToolPose,
+            robot_ids: Optional[torch.Tensor] = None,
+            run_ik: bool = True,
+            use_ik_goal: bool = True,
+            use_best_effort_ik: bool = False,
     ) -> bool:
         """Update the Cartesian goal poses for one or more robots.
 
@@ -511,9 +511,9 @@ class MPCSolver:
             return True
 
     def _solve_ik_for_goal(
-        self,
-        goal_tool_poses: GoalToolPose,
-        robot_ids: Optional[torch.Tensor] = None,
+            self,
+            goal_tool_poses: GoalToolPose,
+            robot_ids: Optional[torch.Tensor] = None,
     ):
         if self.core._goal_buffer is not None and self.core._goal_buffer.current_js is not None:
             current_state = self.core._goal_buffer.current_js.clone()
@@ -942,11 +942,11 @@ class MPCSolver:
         )
 
     def prepare_safe_deceleration_trajectory(
-        self,
-        current_state: JointState,
-        failed_mask: torch.Tensor,
-        deceleration_time: Optional[float] = None,
-        deceleration_profile: Optional[str] = None,
+            self,
+            current_state: JointState,
+            failed_mask: torch.Tensor,
+            deceleration_time: Optional[float] = None,
+            deceleration_profile: Optional[str] = None,
     ) -> torch.Tensor:
         """Build a safe deceleration trajectory for robots that failed feasibility.
 
@@ -983,9 +983,9 @@ class MPCSolver:
             deceleration_time = min(deceleration_time, self.config.max_deceleration_time)
 
         use_deceleration = (
-            self.config.use_deceleration_on_failure
-            and current_state.velocity is not None
-            and torch.any(torch.abs(current_state.velocity) > 1e-6)
+                self.config.use_deceleration_on_failure
+                and current_state.velocity is not None
+                and torch.any(torch.abs(current_state.velocity) > 1e-6)
         )
 
         if use_deceleration:
@@ -1073,7 +1073,7 @@ class MPCSolver:
         return result
 
     def set_default_goal_from_current_state(
-        self, current_state: JointState, robot_ids: Optional[torch.Tensor] = None
+            self, current_state: JointState, robot_ids: Optional[torch.Tensor] = None
     ) -> None:
         kin_state = self.compute_kinematics(current_state.clone())
         target_links = self.solve_state.tool_frames

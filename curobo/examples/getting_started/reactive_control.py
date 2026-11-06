@@ -367,7 +367,7 @@ def interactive_mpc_example(robot_file="franka.yml", port=8080):
         time.sleep(max(0.0, config.optimization_dt - loop_time))
 
 
-def test():
+def _test():
     """Run reactive control example as a self-test."""
     assert reactive_control(), "Reactive control failed"
     out = Path(runtime.cache_dir) / "examples" / "reactive_control"
@@ -382,7 +382,7 @@ def main():
         "--num-steps", type=int, default=100, help="Number of MPC steps (default: 100)",
     )
     parser.add_argument(
-        "--visualize", action="store_true",
+        "--visualize", action="store_false",
         help="Launch interactive Viser viewer for real-time MPC",
     )
     parser.add_argument(
@@ -394,7 +394,7 @@ def main():
     args = parser.parse_args()
 
     if args.test:
-        test()
+        _test()
         sys.exit(0)
 
     if args.visualize:

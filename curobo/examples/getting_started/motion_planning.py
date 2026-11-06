@@ -150,6 +150,7 @@ from curobo.viewer import ViserVisualizer
 _DEFAULT_PLAYBACK_DT = 0.02
 
 
+
 def _get_output_dir() -> Path:
     """Return the example output directory, creating it if needed."""
     out = Path(runtime.cache_dir) / "examples" / "motion_planning"
@@ -239,13 +240,13 @@ def _combine_grasp_phases(
 
 
 def _plot_trajectory(
-    positions: torch.Tensor,
-    joint_names: List[str],
+        positions: torch.Tensor,
+        joint_names: List[str],
     dt: Optional[float],
-    save_path: str,
-    title: str = "Joint Trajectory",
-    phase_boundaries: Optional[List[int]] = None,
-    phase_labels: Optional[List[str]] = None,
+        save_path: str,
+        title: str = "Joint Trajectory",
+        phase_boundaries: Optional[List[int]] = None,
+        phase_labels: Optional[List[str]] = None,
     timestamps: Optional[torch.Tensor] = None,
 ) -> None:
     """Plot joint positions over time and save to *save_path*.
@@ -882,7 +883,7 @@ def main():
     )
     parser.add_argument(
         "--visualize",
-        action="store_true",
+        action="store_false",
         help="Launch interactive Viser viewer with Move and Grasp buttons",
     )
     parser.add_argument(

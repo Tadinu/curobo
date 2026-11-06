@@ -694,14 +694,14 @@ def reachability_example(robot_file="franka.yml", port=8080):
         }
         cur_extent = grid_extent_slider.value
         if (
-            not np.allclose(cur_pos, prev_gizmo_pos)
-            or not np.allclose(cur_wxyz, prev_gizmo_wxyz)
-            or cur_extent != prev_extent
-            or any(
-                not np.allclose(cur_tool_poses[n][0], prev_tool_poses[n][0])
-                or not np.allclose(cur_tool_poses[n][1], prev_tool_poses[n][1])
-                for n in all_target_links
-            )
+                not np.allclose(cur_pos, prev_gizmo_pos)
+                or not np.allclose(cur_wxyz, prev_gizmo_wxyz)
+                or cur_extent != prev_extent
+                or any(
+            not np.allclose(cur_tool_poses[n][0], prev_tool_poses[n][0])
+            or not np.allclose(cur_tool_poses[n][1], prev_tool_poses[n][1])
+            for n in all_target_links
+        )
         ):
             needs_update = True
             prev_gizmo_pos = cur_pos
@@ -848,7 +848,7 @@ def main():
     )
     parser.add_argument(
         "--visualize",
-        action="store_true",
+        action="store_false",
         help="Launch interactive Viser viewer with full IK (LM + LBFGS)",
     )
     parser.add_argument(
