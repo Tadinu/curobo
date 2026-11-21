@@ -61,8 +61,8 @@ class SelfCollisionKinematicsCfg:
     def is_large_collision_topology(self) -> bool:
         """Return whether the configured exact pair list uses the large launch policy."""
         return (
-            self.collision_pairs is not None
-            and self.collision_pairs.shape[0] > _LARGE_COLLISION_PAIR_THRESHOLD
+                self.collision_pairs is not None
+                and self.collision_pairs.shape[0] > _LARGE_COLLISION_PAIR_THRESHOLD
         )
 
     @property
@@ -74,7 +74,7 @@ class SelfCollisionKinematicsCfg:
         if self.collision_pairs.is_cuda:
             device_properties = torch.cuda.get_device_properties(self.collision_pairs.device)
             if curobo_runtime.use_small_gpu_launch_policy(
-                device_properties.multi_processor_count
+                    device_properties.multi_processor_count
             ):
                 # Small GPUs have enough rollout blocks to fill the device. Fewer
                 # threads avoid oversubscribing each exact-pair state block.
@@ -89,18 +89,18 @@ class SelfCollisionKinematicsCfg:
     def use_link_aabb(self) -> bool:
         """Return whether the large-topology AABB path is configured and enabled."""
         return (
-            self._use_link_aabb
-            and self.is_large_collision_topology
-            and all(
-                tensor is not None
-                for tensor in (
-                    self._link_sphere_indices,
-                    self._link_sphere_offsets,
-                    self._link_pairs,
-                    self._link_pair_offsets,
-                    self._grouped_collision_pairs,
-                )
+                self._use_link_aabb
+                and self.is_large_collision_topology
+                and all(
+            tensor is not None
+            for tensor in (
+                self._link_sphere_indices,
+                self._link_sphere_offsets,
+                self._link_pairs,
+                self._link_pair_offsets,
+                self._grouped_collision_pairs,
             )
+        )
         )
 
     @property
@@ -166,8 +166,8 @@ class SelfCollisionKinematicsCfg:
     @get_profiler_decorator("SelfCollisionKinematicsCfg.create_from_sphere_pair_distances")
     @staticmethod
     def create_from_sphere_pair_distances(
-        sphere_pair_distances: torch.Tensor,
-        sphere_padding: torch.Tensor,
+            sphere_pair_distances: torch.Tensor,
+            sphere_padding: torch.Tensor,
     ) -> SelfCollisionKinematicsCfg:
         """Create a SelfCollisionKinematicsCfg from sphere pair distances and padding.
 
@@ -193,7 +193,7 @@ class SelfCollisionKinematicsCfg:
         # num_spheres^2/2 individual tensor ops and dominated planner construction time
         # (~22 s for ~1000 spheres on a Jetson AGX Orin); this form is equivalent
         # (same pairs, same row-major order) and runs in milliseconds.
-        row_i, col_j = torch.triu_indices(num_spheres, num_spheres, offset=1)
+        row_i, col_j = torch.triu_indices(num_spheres, num_spheres, offset=1, device='cpu')
         keep = coll_cpu[row_i, col_j] != -torch.inf
         # Rows that are entirely -inf were skipped by the loop before counting their
         # pairs; reproduce that so the skip-percentage log stays comparable.
@@ -228,13 +228,13 @@ class SelfCollisionKinematicsCfg:
     )
     @staticmethod
     def compute_sphere_pair_distance_with_link_pair_ignores(
-        collision_link_names: List[str],
-        link_name_to_sphere_index: Dict[str, int],
-        self_collision_link_pair_ignores: Dict[str, List[str]],
-        self_collision_link_padding: Dict[str, float],
-        all_link_spheres: torch.Tensor,
-        link_index_to_sphere_index: torch.Tensor,
-        device_cfg: DeviceCfg,
+            collision_link_names: List[str],
+            link_name_to_sphere_index: Dict[str, int],
+            self_collision_link_pair_ignores: Dict[str, List[str]],
+            self_collision_link_padding: Dict[str, float],
+            all_link_spheres: torch.Tensor,
+            link_index_to_sphere_index: torch.Tensor,
+            device_cfg: DeviceCfg,
     ) -> torch.Tensor:
         """Compute pairwise distance between spheres, considering link pair ignores.
 
@@ -315,13 +315,13 @@ class SelfCollisionKinematicsCfg:
     @get_profiler_decorator("SelfCollisionKinematicsCfg.create_from_link_pairs")
     @staticmethod
     def create_from_link_pairs(
-        collision_link_names: List[str],
-        link_name_to_sphere_index: Dict[str, int],
-        self_collision_link_pair_ignores: Dict[str, List[str]],
-        self_collision_link_padding: Dict[str, float],
-        all_link_spheres: torch.Tensor,
-        link_index_to_sphere_index: torch.Tensor,
-        device_cfg: DeviceCfg,
+            collision_link_names: List[str],
+            link_name_to_sphere_index: Dict[str, int],
+            self_collision_link_pair_ignores: Dict[str, List[str]],
+            self_collision_link_padding: Dict[str, float],
+            all_link_spheres: torch.Tensor,
+            link_index_to_sphere_index: torch.Tensor,
+            device_cfg: DeviceCfg,
     ) -> SelfCollisionKinematicsCfg:
         """Create a SelfCollisionKinematicsCfg from link pairs."""
         sphere_pair_distances, self_collision_sphere_padding = (

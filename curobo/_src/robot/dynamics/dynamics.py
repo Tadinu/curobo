@@ -31,9 +31,9 @@ _RNEA_POLICY_REFERENCE_SM_COUNT = 170
 
 
 def _compute_threads_per_batch(
-    max_level_width: int,
-    num_links: int,
-    num_levels: int,
+        max_level_width: int,
+        num_links: int,
+        num_levels: int,
 ) -> int:
     """Compute threads-per-batch for tree-parallel CUDA kernels.
 
@@ -57,11 +57,11 @@ def _compute_threads_per_batch(
 
 
 def _compute_runtime_threads_per_batch(
-    max_level_width: int,
-    num_links: int,
-    num_levels: int,
-    batch_size: int,
-    policy_sm_count: int,
+        max_level_width: int,
+        num_links: int,
+        num_levels: int,
+        batch_size: int,
+        policy_sm_count: int,
 ) -> int:
     """Select RNEA cooperative width from tree shape and states per SM.
 
@@ -85,8 +85,8 @@ def _compute_runtime_threads_per_batch(
     # effective SM count. Cross multiplication avoids rounding states-per-SM.
     def within_scaled_batch(reference_batch_size: int) -> bool:
         return (
-            batch_size * _RNEA_POLICY_REFERENCE_SM_COUNT
-            <= reference_batch_size * policy_sm_count
+                batch_size * _RNEA_POLICY_REFERENCE_SM_COUNT
+                <= reference_batch_size * policy_sm_count
         )
 
     if topology_threads > 1:
@@ -178,9 +178,9 @@ class _DynamicsModelTensors:
 
 
 def _has_direct_joints(
-    joint_map: torch.Tensor,
-    joint_offset_map: torch.Tensor,
-    num_links: int,
+        joint_map: torch.Tensor,
+        joint_offset_map: torch.Tensor,
+        num_links: int,
 ) -> bool:
     """Return whether links and joints have an identity one-to-one mapping."""
     expected = torch.arange(num_links, dtype=joint_map.dtype, device=joint_map.device)
@@ -193,8 +193,8 @@ def _has_direct_joints(
 
 
 def _build_chain_schedule(
-    parents: list[int],
-    device: torch.device,
+        parents: list[int],
+        device: torch.device,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, int]:
     """Build a level schedule over maximal dependency chains."""
     num_links = len(parents)
@@ -273,8 +273,10 @@ def _transform_matrix(transform: torch.Tensor) -> torch.Tensor:
 
 def _spatial_inertia_matrix(mass_com: torch.Tensor, inertia: torch.Tensor) -> torch.Tensor:
     """Expand packed mass properties into a ``[6, 6]`` spatial inertia."""
-    center = mass_com[:3]
-    mass = mass_com[3]
+    device = torch.get_default_device()
+    center = mass_com[:3].to().to(device)
+    mass = mass_com[3].to(device)
+    inertia = inertia.to(device)
     center_cross = _skew(center)
     center_inertia = torch.stack(
         (
@@ -431,7 +433,7 @@ def _collapse_fixed_bodies(config: KinematicsParams) -> _DynamicsModelTensors:
         motion_transform[3:, 3:] = rotation_transpose
         link_inertia = _spatial_inertia_matrix(mass_com[link_index], inertias[link_index])
         aggregate_inertias[old_to_new[owner]] += (
-            motion_transform.T @ link_inertia @ motion_transform
+                motion_transform.T @ link_inertia @ motion_transform
         )
 
     external_force_owners = [-1] * num_original_links
@@ -591,8 +593,8 @@ class Dynamics:
         self._reduced_model = kp._dynamics_model
         self._threads_per_batch = self._reduced_model.threads_per_batch
         self._forward_cache_floats = (
-            32 if self._reduced_model.threads_per_batch > 1 else 20
-        ) * self._reduced_model.num_links
+                                         32 if self._reduced_model.threads_per_batch > 1 else 20
+                                     ) * self._reduced_model.num_links
 
         self._tau_buffer = None
         self._grad_q_buffer = None
@@ -624,8 +626,8 @@ class Dynamics:
             )
         self._threads_per_batch = threads_per_batch
         self._forward_cache_floats = (
-            32 if threads_per_batch > 1 else 20
-        ) * self._reduced_model.num_links
+                                         32 if threads_per_batch > 1 else 20
+                                     ) * self._reduced_model.num_links
 
     def setup_batch_size(self, batch_size: int, horizon: int = 1) -> None:
         """Allocate forward and backward output buffers for the given batch size.
@@ -665,8 +667,8 @@ class Dynamics:
     def _ensure_mass_matrix_buffers(self, batch_size: int, device: torch.device) -> None:
         """Allocate or grow the reusable CRBA forward and backward workspace."""
         if (
-            self._mass_matrix_buffer is not None
-            and self._mass_matrix_buffer.shape[0] >= batch_size
+                self._mass_matrix_buffer is not None
+                and self._mass_matrix_buffer.shape[0] >= batch_size
         ):
             return
 
@@ -734,9 +736,9 @@ class Dynamics:
         return mass_matrix.reshape(output_shape)
 
     def compute_inverse_dynamics(
-        self,
-        joint_state: JointState,
-        f_ext: Optional[torch.Tensor] = None,
+            self,
+            joint_state: JointState,
+            f_ext: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """Compute inverse dynamics (joint torques) for given joint state.
 
@@ -1009,11 +1011,11 @@ class Dynamics:
         log_info(f"Updated inertia of link '{link_name}'")
 
     def update_link_inertial(
-        self,
-        link_name: str,
-        mass: Optional[float] = None,
-        com: Optional[torch.Tensor] = None,
-        inertia: Optional[torch.Tensor] = None,
+            self,
+            link_name: str,
+            mass: Optional[float] = None,
+            com: Optional[torch.Tensor] = None,
+            inertia: Optional[torch.Tensor] = None,
     ) -> None:
         """Update inertial properties of a single link.
 
@@ -1037,8 +1039,8 @@ class Dynamics:
             self.update_link_inertia(link_name, inertia)
 
     def update_links_inertial(
-        self,
-        link_properties: dict[str, dict[str, Union[float, torch.Tensor]]],
+            self,
+            link_properties: dict[str, dict[str, Union[float, torch.Tensor]]],
     ) -> None:
         """Update inertial properties of multiple links.
 

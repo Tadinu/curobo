@@ -99,9 +99,9 @@ class BiRRTConfig:
         if not math.isfinite(self.cspace_resolution) or self.cspace_resolution <= 0.0:
             log_and_raise("cspace_resolution must be finite and positive")
         if (
-            not isinstance(self.fixed_steer_steps, int)
-            or isinstance(self.fixed_steer_steps, bool)
-            or self.fixed_steer_steps < 3
+                not isinstance(self.fixed_steer_steps, int)
+                or isinstance(self.fixed_steer_steps, bool)
+                or self.fixed_steer_steps < 3
         ):
             log_and_raise("fixed_steer_steps must be an integer of at least 3")
         derived_extension = (self.fixed_steer_steps - 2) * self.cspace_resolution
@@ -116,24 +116,24 @@ class BiRRTConfig:
             )
 
         if (
-            not isinstance(self.samples_per_iteration, int)
-            or isinstance(self.samples_per_iteration, bool)
-            or self.samples_per_iteration <= 0
-            or not isinstance(self.max_iterations, int)
-            or isinstance(self.max_iterations, bool)
-            or self.max_iterations <= 0
+                not isinstance(self.samples_per_iteration, int)
+                or isinstance(self.samples_per_iteration, bool)
+                or self.samples_per_iteration <= 0
+                or not isinstance(self.max_iterations, int)
+                or isinstance(self.max_iterations, bool)
+                or self.max_iterations <= 0
         ):
             log_and_raise("RRT samples_per_iteration and max_iterations must be positive")
         if (
-            not isinstance(self.failure_extension_iterations, int)
-            or isinstance(self.failure_extension_iterations, bool)
-            or self.failure_extension_iterations < 0
+                not isinstance(self.failure_extension_iterations, int)
+                or isinstance(self.failure_extension_iterations, bool)
+                or self.failure_extension_iterations < 0
         ):
             log_and_raise("failure_extension_iterations must be non-negative")
         if self.max_batched_lanes <= 0 or self.max_batched_lanes & (self.max_batched_lanes - 1):
             log_and_raise("max_batched_lanes must be a positive power of two")
         required_nodes = 2 + self.samples_per_iteration * (
-            self.max_iterations + self.failure_extension_iterations
+                self.max_iterations + self.failure_extension_iterations
         )
         if self.max_nodes_per_tree < required_nodes:
             log_and_raise(
@@ -145,22 +145,22 @@ class BiRRTConfig:
         if not math.isfinite(self.frontier_sample_scale) or self.frontier_sample_scale <= 0.0:
             log_and_raise("frontier_sample_scale must be finite and positive")
         if (
-            not isinstance(self.shortcut_path_capacity, int)
-            or isinstance(self.shortcut_path_capacity, bool)
-            or self.shortcut_path_capacity < 3
+                not isinstance(self.shortcut_path_capacity, int)
+                or isinstance(self.shortcut_path_capacity, bool)
+                or self.shortcut_path_capacity < 3
         ):
             log_and_raise("shortcut_path_capacity must be an integer of at least 3")
         if self.shortcut_state_capacity is not None and (
-            not isinstance(self.shortcut_state_capacity, int)
-            or isinstance(self.shortcut_state_capacity, bool)
-            or self.shortcut_state_capacity < 2
+                not isinstance(self.shortcut_state_capacity, int)
+                or isinstance(self.shortcut_state_capacity, bool)
+                or self.shortcut_state_capacity < 2
         ):
             log_and_raise("shortcut_state_capacity must be an integer of at least 2")
 
         if isinstance(self.sample_projection, dict):
             self.sample_projection = RRTSampleProjectionConfig(**self.sample_projection)
         elif self.sample_projection is not None and not isinstance(
-            self.sample_projection, RRTSampleProjectionConfig
+                self.sample_projection, RRTSampleProjectionConfig
         ):
             log_and_raise("sample_projection must be an RRTSampleProjectionConfig or None")
         if not isinstance(self.profile_cuda_events, bool):
@@ -255,9 +255,9 @@ class BiRRTPlanner:
     """Bounded bidirectional RRT with one passive extension per GPU growth step."""
 
     def __init__(
-        self,
-        resources: RRTPlannerResources,
-        config: Optional[BiRRTConfig] = None,
+            self,
+            resources: RRTPlannerResources,
+            config: Optional[BiRRTConfig] = None,
     ) -> None:
         """Initialize the planner with its cuRobo runtime resources."""
         self.resources = resources
@@ -290,7 +290,7 @@ class BiRRTPlanner:
                 action_dim=resources.action_dim,
                 max_candidates=self.config.samples_per_iteration,
                 max_path_nodes=2
-                * (self.config.max_iterations + self.config.failure_extension_iterations + 2),
+                               * (self.config.max_iterations + self.config.failure_extension_iterations + 2),
             )
         )
         self._workspaces: dict[int, _RRTWorkspace] = {}
@@ -340,8 +340,8 @@ class BiRRTPlanner:
     def _apply_constraint_goal(self, rollout: RobotRollout, batch_size: int) -> None:
         """Route all installed task-space targets across a fixed rollout batch."""
         if (
-            self._constraint_goal_tool_poses is None
-            and self._constraint_tool_relative_transform_target is None
+                self._constraint_goal_tool_poses is None
+                and self._constraint_tool_relative_transform_target is None
         ):
             return
         goal = GoalRegistry(
@@ -408,7 +408,7 @@ class BiRRTPlanner:
         ]
         if self._sample_projector is not None:
             projection_batch = self._sample_projector.config.projection_slots * (
-                len(self._sample_projector.config.line_search_scales) - 1
+                    len(self._sample_projector.config.line_search_scales) - 1
             )
             rollouts.append((self.resources.auxiliary_rollout, projection_batch))
         for connector in getattr(self, "_direct_connectors", {}).values():
@@ -617,14 +617,16 @@ class BiRRTPlanner:
                 bucket,
                 dtype=torch.int32,
                 pin_memory=True,
+                device='cpu'
             ),
             shortcut_status_host=torch.zeros(
                 (bucket, 5),
                 dtype=torch.int32,
                 pin_memory=True,
+                device='cpu'
             ),
             direct_status=direct_status,
-            direct_status_host=torch.empty(bucket, dtype=torch.int32, pin_memory=True),
+            direct_status_host=torch.empty(bucket, dtype=torch.int32, pin_memory=True, device='cpu'),
             request_query_mask=request_query_mask,
             request_query_mask_all_active=True,
             preprocessing_executors={},
@@ -682,11 +684,11 @@ class BiRRTPlanner:
         return views
 
     def _get_finalization_executor(
-        self,
-        workspace: _RRTWorkspace,
-        *,
-        route_environment: bool,
-        route_goal: bool,
+            self,
+            workspace: _RRTWorkspace,
+            *,
+            route_environment: bool,
+            route_goal: bool,
     ) -> GraphExecutor:
         """Return one graph that reconstructs and shortcuts every workspace lane."""
         route_key = (route_environment, route_goal)
@@ -753,12 +755,12 @@ class BiRRTPlanner:
         }
 
     def _project_growth_samples(
-        self,
-        samples: torch.Tensor,
-        active: torch.Tensor,
-        env_query_idx: torch.Tensor,
-        goal_query_idx: torch.Tensor,
-        route_goals: bool,
+            self,
+            samples: torch.Tensor,
+            active: torch.Tensor,
+            env_query_idx: torch.Tensor,
+            goal_query_idx: torch.Tensor,
+            route_goals: bool,
     ) -> dict[str, float | int]:
         """Repair selected invalid active proposal targets before ordinary growth.
 
@@ -829,18 +831,18 @@ class BiRRTPlanner:
 
     @staticmethod
     def _accumulate_projection_stats(
-        total: dict[str, float | int | bool],
-        update: dict[str, float | int],
+            total: dict[str, float | int | bool],
+            update: dict[str, float | int],
     ) -> None:
         """Accumulate per-step projection counters into query telemetry."""
         for name in (
-            "calls",
-            "eligible_candidates",
-            "initially_invalid",
-            "selected",
-            "repaired",
-            "substituted",
-            "displacement_sum",
+                "calls",
+                "eligible_candidates",
+                "initially_invalid",
+                "selected",
+                "repaired",
+                "substituted",
+                "displacement_sum",
         ):
             total[name] += update[name]
         total["displacement_max"] = max(
@@ -864,10 +866,10 @@ class BiRRTPlanner:
         )
 
     def _interpolate_paths(
-        self,
-        paths: List[Optional[torch.Tensor]],
-        interpolation_steps: int,
-        interpolation_type: TrajInterpolationType,
+            self,
+            paths: List[Optional[torch.Tensor]],
+            interpolation_steps: int,
+            interpolation_type: TrajInterpolationType,
     ) -> torch.Tensor:
         """Interpolate linear graph seeds on-device.
 
@@ -931,13 +933,13 @@ class BiRRTPlanner:
         return min(robot_capacity, scene.num_envs)
 
     def _normalize_batched_request(
-        self,
-        x_start: torch.Tensor,
-        x_goal: torch.Tensor,
-        env_query_idx: Optional[torch.Tensor],
-        query_mask: Optional[torch.Tensor],
-        query_group_id: Optional[torch.Tensor],
-        group_count: Optional[int],
+            self,
+            x_start: torch.Tensor,
+            x_goal: torch.Tensor,
+            env_query_idx: Optional[torch.Tensor],
+            query_mask: Optional[torch.Tensor],
+            query_group_id: Optional[torch.Tensor],
+            group_count: Optional[int],
     ) -> _RRTRequest:
         """Validate public inputs and normalize optional lane metadata."""
         if x_start.ndim != 2 or x_goal.ndim != 2:
@@ -963,9 +965,9 @@ class BiRRTPlanner:
             query_mask_host = [True] * batch_size
         else:
             if (
-                query_mask.shape != (batch_size,)
-                or query_mask.dtype != torch.bool
-                or query_mask.device != x_start.device
+                    query_mask.shape != (batch_size,)
+                    or query_mask.dtype != torch.bool
+                    or query_mask.device != x_start.device
             ):
                 log_and_raise("query_mask must be CUDA bool with shape (batch,)")
             query_mask_host = []
@@ -988,9 +990,9 @@ class BiRRTPlanner:
             )
         else:
             if (
-                query_group_id.shape != (batch_size,)
-                or query_group_id.dtype != torch.int32
-                or query_group_id.device != x_start.device
+                    query_group_id.shape != (batch_size,)
+                    or query_group_id.dtype != torch.int32
+                    or query_group_id.device != x_start.device
             ):
                 log_and_raise("query_group_id must be CUDA int32 with shape (batch,)")
             resolved_group_count = -1 if group_count is None else group_count
@@ -1043,9 +1045,9 @@ class BiRRTPlanner:
             )
         else:
             if (
-                env_query_idx.shape != (batch_size,)
-                or env_query_idx.dtype != torch.int32
-                or env_query_idx.device != x_start.device
+                    env_query_idx.shape != (batch_size,)
+                    or env_query_idx.dtype != torch.int32
+                    or env_query_idx.device != x_start.device
             ):
                 log_and_raise("env_query_idx must be CUDA int32 with shape (batch,)")
             env_min, env_max = torch.aminmax(env_query_idx)
@@ -1103,8 +1105,8 @@ class BiRRTPlanner:
         )
 
     def _initialize_search_state(
-        self,
-        request: _RRTRequest,
+            self,
+            request: _RRTRequest,
     ) -> _RRTSearchState:
         """Construct control metadata before fused direct-edge validation."""
         query_valid_host = request.query_mask_host.copy()
@@ -1132,11 +1134,11 @@ class BiRRTPlanner:
         )
 
     def _launch_preprocessing(
-        self,
-        workspace: _RRTWorkspace,
-        connector: RRTDirectConnector,
-        request_count: int,
-        goal_route_mode: int,
+            self,
+            workspace: _RRTWorkspace,
+            connector: RRTDirectConnector,
+            request_count: int,
+            goal_route_mode: int,
     ) -> torch.Tensor:
         """Reset, validate terminal edges, and seed both trees in one graph."""
         _, stream = get_warp_device_stream(connector.request_starts)
@@ -1203,15 +1205,15 @@ class BiRRTPlanner:
 
     @staticmethod
     def _evaluate_staged_direct(
-        connector: RRTDirectConnector,
+            connector: RRTDirectConnector,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """Evaluate graph-stable paired terminal inputs."""
         return connector.evaluate_staged()
 
     def _preprocess_search(
-        self,
-        request: _RRTRequest,
-        state: _RRTSearchState,
+            self,
+            request: _RRTRequest,
+            state: _RRTSearchState,
     ) -> _RRTWorkspace:
         """Run graph-captured request initialization and update host scheduling state."""
         workspace = self._get_batched_workspace(request.batch_size)
@@ -1280,13 +1282,13 @@ class BiRRTPlanner:
         return workspace
 
     def _run_growth_steps(
-        self,
-        request: _RRTRequest,
-        state: _RRTSearchState,
-        workspace: _RRTWorkspace,
-        padded_env: torch.Tensor,
-        padded_goal: torch.Tensor,
-        profile_checkpoint: Callable[[str], None],
+            self,
+            request: _RRTRequest,
+            state: _RRTSearchState,
+            workspace: _RRTWorkspace,
+            padded_env: torch.Tensor,
+            padded_goal: torch.Tensor,
+            profile_checkpoint: Callable[[str], None],
     ) -> Tuple[int, dict[str, float], dict[str, float | int | bool]]:
         """Execute complete growth steps until every valid completion owner succeeds."""
         iteration_budget = self.config.max_iterations + self.config.failure_extension_iterations
@@ -1297,8 +1299,8 @@ class BiRRTPlanner:
             if not any(state.active_host):
                 break
             if all(
-                solved or not valid
-                for solved, valid in zip(state.group_solved, state.group_valid_host)
+                    solved or not valid
+                    for solved, valid in zip(state.group_solved, state.group_valid_host)
             ):
                 break
             start_is_active = iteration % 2 == 0
@@ -1333,7 +1335,7 @@ class BiRRTPlanner:
                     for phase, elapsed in step_profile.items():
                         key = f"captured_{phase}"
                         captured_component_times[key] = (
-                            captured_component_times.get(key, 0.0) + elapsed
+                                captured_component_times.get(key, 0.0) + elapsed
                         )
             profile_checkpoint("growth_execute_status")
             growth_steps += 1
@@ -1366,17 +1368,17 @@ class BiRRTPlanner:
         return growth_steps, captured_component_times, projection_stats
 
     def _reconstruct_paths(
-        self,
-        state: _RRTSearchState,
-        workspace: _RRTWorkspace,
+            self,
+            state: _RRTSearchState,
+            workspace: _RRTWorkspace,
     ) -> None:
         """Reconstruct every connected lane into fixed GPU storage."""
         self._reconstruct_growth_paths(workspace, state.connection_records)
 
     def _reconstruct_growth_paths(
-        self,
-        workspace: _RRTWorkspace,
-        records: List[_RRTConnectionRecord],
+            self,
+            workspace: _RRTWorkspace,
+            records: List[_RRTConnectionRecord],
     ) -> None:
         """Populate fixed path storage with one graph-replayed GPU trace."""
         if not records:
@@ -1390,9 +1392,9 @@ class BiRRTPlanner:
             seen_lanes.add(record.lane)
 
         if (
-            self.config.shortcut_path
-            and any(not record.is_direct for record in records)
-            and getattr(workspace, "finalization_rollout", None) is not None
+                self.config.shortcut_path
+                and any(not record.is_direct for record in records)
+                and getattr(workspace, "finalization_rollout", None) is not None
         ):
             return
         output = workspace.path_reconstruction_executor()
@@ -1400,10 +1402,10 @@ class BiRRTPlanner:
             log_and_raise("RRT path reconstruction must return paths, counts, and lengths")
 
     def _shortcut_paths(
-        self,
-        request: _RRTRequest,
-        state: _RRTSearchState,
-        workspace: _RRTWorkspace,
+            self,
+            request: _RRTRequest,
+            state: _RRTSearchState,
+            workspace: _RRTWorkspace,
     ) -> Tuple[torch.Tensor, torch.Tensor, dict[str, int]]:
         """Finalize every reconstructed lane with one batched shortcut rollout."""
         reconstruction = workspace.path_reconstruction
@@ -1508,18 +1510,18 @@ class BiRRTPlanner:
         )
 
     def find_path_batched(
-        self,
-        x_start: torch.Tensor,
-        x_goal: torch.Tensor,
-        *,
-        env_query_idx: Optional[torch.Tensor] = None,
-        query_mask: Optional[torch.Tensor] = None,
-        query_group_id: Optional[torch.Tensor] = None,
-        group_count: Optional[int] = None,
-        interpolate_waypoints: bool = True,
-        interpolation_steps: int = 100,
-        interpolation_type: TrajInterpolationType = TrajInterpolationType.LINEAR,
-        validate_interpolated_trajectory: bool = True,
+            self,
+            x_start: torch.Tensor,
+            x_goal: torch.Tensor,
+            *,
+            env_query_idx: Optional[torch.Tensor] = None,
+            query_mask: Optional[torch.Tensor] = None,
+            query_group_id: Optional[torch.Tensor] = None,
+            group_count: Optional[int] = None,
+            interpolate_waypoints: bool = True,
+            interpolation_steps: int = 100,
+            interpolation_type: TrajInterpolationType = TrajInterpolationType.LINEAR,
+            validate_interpolated_trajectory: bool = True,
     ) -> GraphPlannerResult:
         """Plan paired queries through the canonical growth-step executors.
 
@@ -1547,7 +1549,7 @@ class BiRRTPlanner:
         if not request.has_requested_lanes:
             profile_checkpoint("masked_request")
             iteration_budget = (
-                self.config.max_iterations + self.config.failure_extension_iterations
+                    self.config.max_iterations + self.config.failure_extension_iterations
             )
             result = GraphPlannerResult(
                 success=torch.zeros(
@@ -1619,9 +1621,9 @@ class BiRRTPlanner:
         shortcut_start_event = None
         shortcut_end_event = None
         if (
-            self.config.measure_shortcut_time
-            and not profile_cuda_events
-            and runtime.cuda_event_timers
+                self.config.measure_shortcut_time
+                and not profile_cuda_events
+                and runtime.cuda_event_timers
         ):
             shortcut_start_event = torch.cuda.Event(enable_timing=True)
             shortcut_end_event = torch.cuda.Event(enable_timing=True)
@@ -1703,7 +1705,7 @@ class BiRRTPlanner:
 
                 final_group_solved = [False] * request.group_count
                 for lane_success, group_index in zip(
-                    result.success.cpu().tolist(), state.group_ids_host
+                        result.success.cpu().tolist(), state.group_ids_host
                 ):
                     if lane_success:
                         final_group_solved[group_index] = True
@@ -1724,18 +1726,18 @@ class BiRRTPlanner:
         return result
 
     def find_path(
-        self,
-        x_start: torch.Tensor,
-        x_goal: torch.Tensor,
-        interpolate_waypoints: bool = True,
-        interpolation_steps: int = 100,
-        interpolation_type: TrajInterpolationType = TrajInterpolationType.LINEAR,
-        validate_interpolated_trajectory: bool = True,
-        *,
-        env_query_idx: Optional[torch.Tensor] = None,
-        query_mask: Optional[torch.Tensor] = None,
-        query_group_id: Optional[torch.Tensor] = None,
-        group_count: Optional[int] = None,
+            self,
+            x_start: torch.Tensor,
+            x_goal: torch.Tensor,
+            interpolate_waypoints: bool = True,
+            interpolation_steps: int = 100,
+            interpolation_type: TrajInterpolationType = TrajInterpolationType.LINEAR,
+            validate_interpolated_trajectory: bool = True,
+            *,
+            env_query_idx: Optional[torch.Tensor] = None,
+            query_mask: Optional[torch.Tensor] = None,
+            query_group_id: Optional[torch.Tensor] = None,
+            group_count: Optional[int] = None,
     ) -> GraphPlannerResult:
         """Plan paired starts and goals with optional completion-owner metadata."""
         return self.find_path_batched(
@@ -1765,17 +1767,17 @@ class BiRRTPlanner:
         self.resources.reset_seed()
 
     def _get_projector(
-        self,
-        config: Optional[RRTSampleProjectionConfig] = None,
+            self,
+            config: Optional[RRTSampleProjectionConfig] = None,
     ) -> RRTSampleProjector:
         """Return the one lazily configured optional projection operator."""
         resolved_config = (
-            config
-            or self.config.sample_projection
-            or RRTSampleProjectionConfig(
-                projection_slots=4,
-                use_cuda_graph=True,
-            )
+                config
+                or self.config.sample_projection
+                or RRTSampleProjectionConfig(
+            projection_slots=4,
+            use_cuda_graph=True,
+        )
         )
         if self._sample_projector is None or self._sample_projection_config != resolved_config:
             if self._sample_projector is not None:
@@ -1786,11 +1788,11 @@ class BiRRTPlanner:
             )
             self._sample_projection_config = resolved_config
             if (
-                self._constraint_goal_tool_poses is not None
-                or self._constraint_tool_relative_transform_target is not None
+                    self._constraint_goal_tool_poses is not None
+                    or self._constraint_tool_relative_transform_target is not None
             ):
                 projection_batch = resolved_config.projection_slots * (
-                    len(resolved_config.line_search_scales) - 1
+                        len(resolved_config.line_search_scales) - 1
                 )
                 self._apply_constraints(
                     self.resources.auxiliary_rollout,
@@ -1799,12 +1801,12 @@ class BiRRTPlanner:
         return self._sample_projector
 
     def project_samples(
-        self,
-        samples: torch.Tensor,
-        config: Optional[RRTSampleProjectionConfig] = None,
-        env_query_idx: Optional[torch.Tensor] = None,
-        goal_query_idx: Optional[torch.Tensor] = None,
-        eligible_mask: Optional[torch.Tensor] = None,
+            self,
+            samples: torch.Tensor,
+            config: Optional[RRTSampleProjectionConfig] = None,
+            env_query_idx: Optional[torch.Tensor] = None,
+            goal_query_idx: Optional[torch.Tensor] = None,
+            eligible_mask: Optional[torch.Tensor] = None,
     ) -> RRTSampleProjectionResult:
         """Project samples into their routed collision-free inequality sets.
 
@@ -1821,9 +1823,9 @@ class BiRRTPlanner:
         )
 
     def update_tool_pose_constraint(
-        self,
-        goal_tool_poses: GoalToolPose,
-        tool_pose_criteria: Dict[str, ToolPoseCriteria],
+            self,
+            goal_tool_poses: GoalToolPose,
+            tool_pose_criteria: Dict[str, ToolPoseCriteria],
     ) -> None:
         """Atomically update the tool-pose path constraint for projected RRT.
 
@@ -1866,14 +1868,14 @@ class BiRRTPlanner:
         if goal_tool_poses.tool_frames != self.resources.kinematics.tool_frames:
             log_and_raise("RRT constraint goal tool frames must match graph-planner tool frames")
         if (
-            self._constraint_goal_tool_poses is not None
-            and goal_tool_poses.shape != self._constraint_goal_tool_poses.shape
+                self._constraint_goal_tool_poses is not None
+                and goal_tool_poses.shape != self._constraint_goal_tool_poses.shape
         ):
             log_and_raise("RRT constraint goal shape cannot change after installation")
 
     def _validate_tool_pose_constraint_criteria(
-        self,
-        tool_pose_criteria: Dict[str, ToolPoseCriteria],
+            self,
+            tool_pose_criteria: Dict[str, ToolPoseCriteria],
     ) -> None:
         """Validate one complete fixed-shape tool-pose criteria update."""
         if set(tool_pose_criteria) != set(self.resources.kinematics.tool_frames):
@@ -1893,8 +1895,8 @@ class BiRRTPlanner:
         self._constraint_goal_tool_poses.copy_(goal_tool_poses)
 
     def update_tool_pose_constraint_criteria(
-        self,
-        tool_pose_criteria: Dict[str, ToolPoseCriteria],
+            self,
+            tool_pose_criteria: Dict[str, ToolPoseCriteria],
     ) -> None:
         """Update arbitrary fixed-shape pose projectors on the existing RRT instance."""
         self._validate_tool_pose_constraint_criteria(tool_pose_criteria)
@@ -1918,9 +1920,9 @@ class BiRRTPlanner:
         self._apply_tool_pose_criteria_to_all_rollouts()
 
     def update_tool_relative_transform_constraint(
-        self,
-        target: ToolRelativeTransformTarget,
-        criteria: Dict[str, ToolRelativeTransformCriteria],
+            self,
+            target: ToolRelativeTransformTarget,
+            criteria: Dict[str, ToolRelativeTransformCriteria],
     ) -> None:
         """Update one-reference relative tool constraints for projected RRT."""
         constraint_cfg = self.resources.config.rollout_config.constraint_cfg
@@ -1943,7 +1945,7 @@ class BiRRTPlanner:
         if set(criteria) != set(tool_frames):
             log_and_raise("RRT relative-transform criteria must match graph-planner tool frames")
         if not all(
-            isinstance(value, ToolRelativeTransformCriteria) for value in criteria.values()
+                isinstance(value, ToolRelativeTransformCriteria) for value in criteria.values()
         ):
             log_and_raise(
                 "RRT relative-transform criteria values must be ToolRelativeTransformCriteria"
@@ -2007,18 +2009,18 @@ class BiRRTPlanner:
             connector.rollout for connector in getattr(self, "_direct_connectors", {}).values()
         ]
         return (
-            self.resources.get_all_rollout_instances()
-            + direct_rollouts
-            + batched_rollouts
-            + finalization_rollouts
+                self.resources.get_all_rollout_instances()
+                + direct_rollouts
+                + batched_rollouts
+                + finalization_rollouts
         )
 
     def update_link_inertial(
-        self,
-        link_name: str,
-        mass: Optional[float] = None,
-        com: Optional[torch.Tensor] = None,
-        inertia: Optional[torch.Tensor] = None,
+            self,
+            link_name: str,
+            mass: Optional[float] = None,
+            com: Optional[torch.Tensor] = None,
+            inertia: Optional[torch.Tensor] = None,
     ) -> None:
         """Update one link in enabled dynamics models; skip geometric RRT transitions."""
         for rollout in self.get_all_rollout_instances():
@@ -2027,8 +2029,8 @@ class BiRRTPlanner:
                     model.update_link_inertial(link_name, mass, com, inertia)
 
     def update_links_inertial(
-        self,
-        link_properties: Dict[str, Dict[str, Union[float, torch.Tensor]]],
+            self,
+            link_properties: Dict[str, Dict[str, Union[float, torch.Tensor]]],
     ) -> None:
         """Update links in enabled dynamics models; skip geometric RRT transitions."""
         for rollout in self.get_all_rollout_instances():
@@ -2037,9 +2039,9 @@ class BiRRTPlanner:
                     model.update_links_inertial(link_properties)
 
     def _initialize_growth_steps(
-        self,
-        actions: torch.Tensor,
-        lane_count: int,
+            self,
+            actions: torch.Tensor,
+            lane_count: int,
     ) -> None:
         """Initialize both canonical growth-step orientations for one batch bucket."""
         if lane_count <= 0:
@@ -2054,14 +2056,14 @@ class BiRRTPlanner:
         if actions.shape[0] < sample_count + 2:
             log_and_raise("BiRRT growth-step warmup received too few feasible actions")
         for tree, root in (
-            (workspace.start_tree, actions[0]),
-            (workspace.goal_tree, actions[1]),
+                (workspace.start_tree, actions[0]),
+                (workspace.goal_tree, actions[1]),
         ):
             tree.nodes[:, 0].copy_(root.view(1, -1).expand(bucket, -1))
             tree.parents[:, 0].fill_(-1)
             tree.counts.fill_(1)
         samples = (
-            actions[2 : sample_count + 2]
+            actions[2: sample_count + 2]
             .view(1, sample_count, self.resources.action_dim)
             .expand(bucket, -1, -1)
             .contiguous()
@@ -2098,9 +2100,9 @@ class BiRRTPlanner:
     def warmup(self, num_warmup_iterations: int = 10, max_batch_size: int = 1) -> None:
         """Warm collision, sampling, growth-step executors, and shortcut kernels."""
         if (
-            not isinstance(max_batch_size, int)
-            or isinstance(max_batch_size, bool)
-            or not 1 <= max_batch_size <= self.config.max_batched_lanes
+                not isinstance(max_batch_size, int)
+                or isinstance(max_batch_size, bool)
+                or not 1 <= max_batch_size <= self.config.max_batched_lanes
         ):
             log_and_raise(
                 f"max_batch_size must be an integer in [1, {self.config.max_batched_lanes}]"
@@ -2124,9 +2126,9 @@ class BiRRTPlanner:
             lane_counts.add(lane_bucket)
 
         if (
-            self._sample_projector is not None
-            and self._sample_projector.config.use_cuda_graph
-            and actions.is_cuda
+                self._sample_projector is not None
+                and self._sample_projector.config.use_cuda_graph
+                and actions.is_cuda
         ):
             projection_actions = actions[: self._sample_projector.config.projection_slots]
             projection_env = (
@@ -2146,8 +2148,8 @@ class BiRRTPlanner:
             start = iteration * max_batch_size
             goal = (num_warmup_iterations + iteration) * max_batch_size
             self.find_path(
-                actions[start : start + max_batch_size],
-                actions[goal : goal + max_batch_size],
+                actions[start: start + max_batch_size],
+                actions[goal: goal + max_batch_size],
                 interpolate_waypoints=False,
                 validate_interpolated_trajectory=False,
             )

@@ -55,27 +55,27 @@ class RRTGrowthStep:
     """Execute nearest, exact steering, generic rollout, and append for ``B`` queries."""
 
     def __init__(
-        self,
-        *,
-        tree_kernel_runner: RRTTreeKernelRunner,
-        active_nearest: NearestRRTTreeQueryBuffers,
-        passive_nearest: NearestRRTTreeQueryBuffers,
-        active_append: PackedRRTTreeAppendBuffers,
-        passive_append: PackedRRTTreeAppendBuffers,
-        start_counts: torch.Tensor,
-        goal_counts: torch.Tensor,
-        connection_indices: torch.Tensor,
-        start_is_active: bool,
-        query_active: torch.Tensor,
-        env_query_idx: torch.Tensor,
-        goal_query_idx: torch.Tensor,
-        distance_weight: torch.Tensor,
-        max_extension_distance: float,
-        cspace_resolution: float,
-        max_steps: int,
-        similarity_threshold: float,
-        rollout: RobotRollout,
-        profile_cuda_event_phase: str = "off",
+            self,
+            *,
+            tree_kernel_runner: RRTTreeKernelRunner,
+            active_nearest: NearestRRTTreeQueryBuffers,
+            passive_nearest: NearestRRTTreeQueryBuffers,
+            active_append: PackedRRTTreeAppendBuffers,
+            passive_append: PackedRRTTreeAppendBuffers,
+            start_counts: torch.Tensor,
+            goal_counts: torch.Tensor,
+            connection_indices: torch.Tensor,
+            start_is_active: bool,
+            query_active: torch.Tensor,
+            env_query_idx: torch.Tensor,
+            goal_query_idx: torch.Tensor,
+            distance_weight: torch.Tensor,
+            max_extension_distance: float,
+            cspace_resolution: float,
+            max_steps: int,
+            similarity_threshold: float,
+            rollout: RobotRollout,
+            profile_cuda_event_phase: str = "off",
     ) -> None:
         """Retain fixed-address batched buffers and a dedicated rollout."""
         self.tree_kernel_runner = tree_kernel_runner
@@ -104,33 +104,33 @@ class RRTGrowthStep:
         expected_count_shape = (self.batch_size,)
         for name, count in (("start_counts", start_counts), ("goal_counts", goal_counts)):
             if (
-                count.shape != expected_count_shape
-                or count.dtype != torch.int32
-                or count.device != self.device
+                    count.shape != expected_count_shape
+                    or count.dtype != torch.int32
+                    or count.device != self.device
             ):
                 log_and_raise(f"{name} must be CUDA int32 with shape (batch,)")
         if (
-            query_active.shape != expected_count_shape
-            or query_active.dtype != torch.bool
-            or query_active.device != self.device
+                query_active.shape != expected_count_shape
+                or query_active.dtype != torch.bool
+                or query_active.device != self.device
         ):
             log_and_raise("query_active must be CUDA bool with shape (batch,)")
         if (
-            connection_indices.shape != (self.batch_size, 2)
-            or connection_indices.dtype != torch.int64
-            or connection_indices.device != self.device
+                connection_indices.shape != (self.batch_size, 2)
+                or connection_indices.dtype != torch.int64
+                or connection_indices.device != self.device
         ):
             log_and_raise("connection_indices must be CUDA int64 with shape (batch, 2)")
         if (
-            env_query_idx.shape != expected_count_shape
-            or env_query_idx.dtype != torch.int32
-            or env_query_idx.device != self.device
+                env_query_idx.shape != expected_count_shape
+                or env_query_idx.dtype != torch.int32
+                or env_query_idx.device != self.device
         ):
             log_and_raise("env_query_idx must be CUDA int32 with shape (batch,)")
         if (
-            goal_query_idx.shape != expected_count_shape
-            or goal_query_idx.dtype != torch.int32
-            or goal_query_idx.device != self.device
+                goal_query_idx.shape != expected_count_shape
+                or goal_query_idx.dtype != torch.int32
+                or goal_query_idx.device != self.device
         ):
             log_and_raise("goal_query_idx must be CUDA int32 with shape (batch,)")
         if passive_nearest.desired.shape != active_nearest.desired.shape:
@@ -140,17 +140,17 @@ class RRTGrowthStep:
         if passive_append.candidates.shape != passive_nearest.desired.shape:
             log_and_raise("passive append candidates must match proposals")
         for name, nearest, append in (
-            ("active", active_nearest, active_append),
-            ("passive", passive_nearest, passive_append),
+                ("active", active_nearest, active_append),
+                ("passive", passive_nearest, passive_append),
         ):
             if (
-                nearest.profile != tree_kernel_runner.profile
-                or append.profile != tree_kernel_runner.profile
+                    nearest.profile != tree_kernel_runner.profile
+                    or append.profile != tree_kernel_runner.profile
             ):
                 log_and_raise(f"{name} bindings must use the RRT tree-kernel profile")
             if (
-                nearest.tree_nodes.data_ptr() != append.tree_nodes.data_ptr()
-                or nearest.tree_counts.data_ptr() != append.tree_counts.data_ptr()
+                    nearest.tree_nodes.data_ptr() != append.tree_nodes.data_ptr()
+                    or nearest.tree_counts.data_ptr() != append.tree_counts.data_ptr()
             ):
                 log_and_raise(f"{name} nearest and append bindings must share tree storage")
             if nearest.parent_indices.data_ptr() != append.candidate_parents.data_ptr():
@@ -172,8 +172,8 @@ class RRTGrowthStep:
         self._select_connection_kernel = kernels["select_connection"]
         self._stage_buffers = {}
         for stage, append in (
-            ("active", self.active_append),
-            ("passive", self.passive_append),
+                ("active", self.active_append),
+                ("passive", self.passive_append),
         ):
             self._stage_buffers[stage] = {
                 "targets": torch.empty(
@@ -200,7 +200,7 @@ class RRTGrowthStep:
                 "progressed": append.candidate_valid.reshape(self._edge_count),
             }
         if self._stage_buffers["active"]["endpoints"].data_ptr() != (
-            self.passive_nearest.desired.data_ptr()
+                self.passive_nearest.desired.data_ptr()
         ):
             log_and_raise("active endpoints must alias passive nearest targets")
         self._status = torch.empty(
@@ -212,6 +212,7 @@ class RRTGrowthStep:
             (self.batch_size, 5),
             dtype=torch.int64,
             pin_memory=True,
+            device='cpu'
         )
         self._rollout_env_query_idx = torch.empty(
             self.batch_size * self.sample_count * self.max_steps,
@@ -262,10 +263,10 @@ class RRTGrowthStep:
             self._profile_end_event.record()
 
     def _rollout_edges(
-        self,
-        starts: torch.Tensor,
-        desired: torch.Tensor,
-        stage: str,
+            self,
+            starts: torch.Tensor,
+            desired: torch.Tensor,
+            stage: str,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Return endpoint, reached, and progressed tensors for one steering chunk."""
         starts_flat = starts.reshape(self._edge_count, self.action_dim)
@@ -352,11 +353,11 @@ class RRTGrowthStep:
         )
 
     def _rollout_stage(
-        self,
-        binding: NearestRRTTreeQueryBuffers,
-        desired: torch.Tensor,
-        stream: wp.Stream,
-        stage: str,
+            self,
+            binding: NearestRRTTreeQueryBuffers,
+            desired: torch.Tensor,
+            stream: wp.Stream,
+            stage: str,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """Return parent, endpoint, reached, and progressed tensors for one tree side."""
         self._profile_begin(f"{stage}_nearest")
@@ -369,9 +370,9 @@ class RRTGrowthStep:
         return parents, endpoints, reached, progressed
 
     def _passive_extension(
-        self,
-        desired: torch.Tensor,
-        stream: wp.Stream,
+            self,
+            desired: torch.Tensor,
+            stream: wp.Stream,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """Run one bounded passive extension toward the active endpoints."""
         self._profile_begin("passive_extension")
@@ -387,11 +388,11 @@ class RRTGrowthStep:
         return passive
 
     def _growth_step(
-        self,
-        samples: torch.Tensor,
-        query_active: torch.Tensor,
-        env_query_idx: torch.Tensor,
-        goal_query_idx: torch.Tensor,
+            self,
+            samples: torch.Tensor,
+            query_active: torch.Tensor,
+            env_query_idx: torch.Tensor,
+            goal_query_idx: torch.Tensor,
     ) -> torch.Tensor:
         """Run one step against the executor's borrowed planner-owned inputs."""
         _, stream = get_warp_device_stream(samples)
@@ -474,51 +475,51 @@ class RRTGrowthStep:
         self.connection_indices.copy_(snapshot[6])
 
     def _validate_inputs(
-        self,
-        samples: torch.Tensor,
-        query_active: torch.Tensor,
-        env_query_idx: torch.Tensor,
-        goal_query_idx: torch.Tensor,
+            self,
+            samples: torch.Tensor,
+            query_active: torch.Tensor,
+            env_query_idx: torch.Tensor,
+            goal_query_idx: torch.Tensor,
     ) -> None:
         """Validate the fixed executor tensor ABI before initialization or execution."""
         expected_samples = self.active_nearest.desired
         if (
-            samples.shape != expected_samples.shape
-            or samples.dtype != expected_samples.dtype
-            or samples.device != self.device
-            or not samples.is_contiguous()
+                samples.shape != expected_samples.shape
+                or samples.dtype != expected_samples.dtype
+                or samples.device != self.device
+                or not samples.is_contiguous()
         ):
             log_and_raise(
                 "samples must be contiguous and match the proposal shape, dtype, and device"
             )
         if (
-            query_active.shape != self.query_active.shape
-            or query_active.dtype != torch.bool
-            or query_active.device != self.device
-            or not query_active.is_contiguous()
+                query_active.shape != self.query_active.shape
+                or query_active.dtype != torch.bool
+                or query_active.device != self.device
+                or not query_active.is_contiguous()
         ):
             log_and_raise("query_active must be contiguous CUDA bool with shape (batch,)")
         if (
-            env_query_idx.shape != self.env_query_idx.shape
-            or env_query_idx.dtype != torch.int32
-            or env_query_idx.device != self.device
-            or not env_query_idx.is_contiguous()
+                env_query_idx.shape != self.env_query_idx.shape
+                or env_query_idx.dtype != torch.int32
+                or env_query_idx.device != self.device
+                or not env_query_idx.is_contiguous()
         ):
             log_and_raise("env_query_idx must be contiguous CUDA int32 with shape (batch,)")
         if (
-            goal_query_idx.shape != self.goal_query_idx.shape
-            or goal_query_idx.dtype != torch.int32
-            or goal_query_idx.device != self.device
-            or not goal_query_idx.is_contiguous()
+                goal_query_idx.shape != self.goal_query_idx.shape
+                or goal_query_idx.dtype != torch.int32
+                or goal_query_idx.device != self.device
+                or not goal_query_idx.is_contiguous()
         ):
             log_and_raise("goal_query_idx must be contiguous CUDA int32 with shape (batch,)")
 
     def initialize(
-        self,
-        samples: torch.Tensor,
-        query_active: torch.Tensor,
-        env_query_idx: torch.Tensor,
-        goal_query_idx: torch.Tensor,
+            self,
+            samples: torch.Tensor,
+            query_active: torch.Tensor,
+            env_query_idx: torch.Tensor,
+            goal_query_idx: torch.Tensor,
     ) -> None:
         """Initialize this orientation without changing logical tree storage."""
         if self.is_initialized:
@@ -544,11 +545,11 @@ class RRTGrowthStep:
         self._last_cuda_event_profile = None
 
     def execute(
-        self,
-        samples: torch.Tensor,
-        query_active: torch.Tensor,
-        env_query_idx: torch.Tensor,
-        goal_query_idx: torch.Tensor,
+            self,
+            samples: torch.Tensor,
+            query_active: torch.Tensor,
+            env_query_idx: torch.Tensor,
+            goal_query_idx: torch.Tensor,
     ) -> list[list[int]]:
         """Execute one growth step and transfer one status matrix."""
         if not self.is_initialized:
@@ -573,7 +574,7 @@ class RRTGrowthStep:
             # growth step, so elapsed_time adds no synchronization here.
             self._last_cuda_event_profile = {
                 self.profile_cuda_event_phase: (
-                    self._profile_start_event.elapsed_time(self._profile_end_event) / 1000.0
+                        self._profile_start_event.elapsed_time(self._profile_end_event) / 1000.0
                 )
             }
         return status_host
